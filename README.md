@@ -1,0 +1,229 @@
+# E-Commerce Product Recommender System
+
+A full-stack e-commerce product recommendation system powered by machine learning and AI-generated explanations.
+
+## 🚀 Features
+
+- **Personalized Recommendations**: Get product suggestions based on user behavior and preferences
+- **Content-Based Filtering**: Find similar products based on features and characteristics
+- **Collaborative Filtering**: Recommendations based on user-item interactions
+- **AI-Powered Explanations**: Natural language explanations for recommendations using OpenAI's GPT
+- **Modern UI**: Beautiful React frontend with responsive design
+- **RESTful API**: FastAPI backend with automatic documentation
+
+## 🏗️ Architecture
+
+### Backend (FastAPI + Python)
+- **FastAPI**: Modern, fast web framework
+- **PostgreSQL**: Relational database for products, users, and interactions
+- **SQLAlchemy**: ORM for database operations
+- **OpenAI API**: LLM-powered recommendation explanations
+- **Scikit-learn**: Machine learning algorithms for recommendations
+
+### Frontend (React + Vite)
+- **React 18**: Modern React with hooks
+- **React Router**: Client-side routing
+- **Vite**: Fast build tool and development server
+- **CSS3**: Modern styling with responsive design
+
+## 📁 Project Structure
+
+```
+product-recommender/
+├── backend/
+│   ├── app/
+│   │   ├── main.py                 # FastAPI application
+│   │   ├── models/                 # Pydantic models
+│   │   ├── routes/                 # API endpoints
+│   │   ├── services/               # Business logic
+│   │   ├── database/               # Database models & connection
+│   │   └── recommender/            # Recommendation algorithms
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── components/             # React components
+│   │   ├── pages/                  # Page components
+│   │   ├── services/               # API service layer
+│   │   └── App.jsx                 # Main app component
+│   ├── package.json
+│   └── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+## 🛠️ Installation & Setup
+
+### Prerequisites
+- Python 3.9+
+- Node.js 18+
+- Docker & Docker Compose (optional)
+- PostgreSQL 15+ (if not using Docker)
+- OpenAI API Key
+
+### Option 1: Using Docker Compose (Recommended)
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd product-recommender
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   # Create .env file in the root directory
+   echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+   ```
+
+3. **Start all services**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+### Option 2: Manual Setup
+
+#### Backend Setup
+
+1. **Navigate to backend directory**
+   ```bash
+   cd backend
+   ```
+
+2. **Create virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your configuration
+   ```
+
+5. **Run the application**
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+#### Frontend Setup
+
+1. **Navigate to frontend directory**
+   ```bash
+   cd frontend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   # Create .env file
+   echo "VITE_API_BASE_URL=http://localhost:8000" > .env
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+## 📊 Database Schema
+
+### Products
+- id, name, description, price, category, image_url, tags, created_at
+
+### Users
+- id, email, username, hashed_password, created_at
+
+### User Interactions
+- id, user_id, product_id, interaction_type, created_at
+
+## 🔧 API Endpoints
+
+### Products
+- `GET /products` - Get all products
+- `GET /products/{id}` - Get product by ID
+- `POST /products` - Create new product
+
+### Recommendations
+- `GET /recommendations/user/{user_id}` - Get personalized recommendations
+- `GET /recommendations/product/{product_id}` - Get similar products
+
+### Users
+- `GET /users/{id}` - Get user by ID
+- `POST /users` - Create new user
+
+Full API documentation available at `/docs` when running the backend.
+
+## 🤖 Recommendation Algorithms
+
+1. **Collaborative Filtering**: User-based and item-based collaborative filtering using user interaction data
+
+2. **Content-Based Filtering**: Recommendations based on product features (name, description, category, tags)
+
+3. **LLM Explanations**: Natural language explanations generated by OpenAI's GPT models
+
+## 🧪 Testing
+
+### Backend Tests
+```bash
+cd backend
+pytest
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm test
+```
+
+## 🚢 Deployment
+
+### Using Docker
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Manual Deployment
+1. Set up PostgreSQL database
+2. Configure environment variables
+3. Build frontend: `npm run build`
+4. Deploy backend with production ASGI server
+5. Serve frontend build files
+
+## 🔑 Environment Variables
+
+### Backend
+- `DATABASE_URL`: PostgreSQL connection string
+- `OPENAI_API_KEY`: OpenAI API key
+- `APP_ENV`: Application environment (development/production)
+- `DEBUG`: Debug mode (True/False)
+- `SECRET_KEY`: Secret key for JWT tokens
+
+### Frontend
+- `VITE_API_BASE_URL`: Backend API URL
+
+## 📝 License
+
+MIT License
+
+## 👥 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📧 Contact
+
+For questions or support, please open an issue on GitHub.
+

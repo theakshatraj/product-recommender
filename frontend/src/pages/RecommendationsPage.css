@@ -1,0 +1,40 @@
+.recommendations-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.recommendations-page .container {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.recommendations-page h1 {
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.recommendations-list {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.no-recommendations {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+.no-recommendations p {
+  color: #666;
+  font-size: 1.1rem;
+}
+

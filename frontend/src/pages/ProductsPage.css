@@ -1,0 +1,30 @@
+.products-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.products-page .container {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.products-page h1 {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 1rem;
+  border-radius: 4px;
+  text-align: center;
+  margin: 2rem 0;
+}
+
