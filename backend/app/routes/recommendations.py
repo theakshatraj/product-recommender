@@ -1,22 +1,28 @@
 """
 Recommendation API Routes
+
+Updated to use RecommendationService and LLMService with async processing.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import List, Dict
-from collections import defaultdict
-import random
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from app.database.connection import get_db
 from app.database.models import User, Product, UserInteraction, InteractionType
-from app.recommender.collaborative_filtering import CollaborativeFiltering
+from app.services.recommendation_service import RecommendationService
+from app.services.llm_service import LLMService
 
 router = APIRouter(
     prefix="/recommendations",
     tags=["recommendations"]
 )
+
+# Thread pool for async LLM processing
+executor = ThreadPoolExecutor(max_workers=10)
 
 
 def calculate_collaborative_recommendations(user_id: int, db: Session, limit: int = 5, method: str = 'hybrid') -> List[Dict]:
@@ -156,27 +162,73 @@ def generate_llm_explanation(product: Product, reason: str, details: str) -> str
     return explanations.get(reason, f"We think you'll like '{product.name}' - {product.description[:100]}...")
 
 
+async def generate_llm_explanation_async(
+    llm_service: LLMService,
+    user_data: Dict,
+    product_dict: Dict,
+    factors: Dict
+) -> str:
+    """
+    Asynchronously generate LLM explanation using thread pool.
+    
+    Args:
+        llm_service: LLM service instance
+        user_data: User information
+        product_dict: Product details
+        factors: Recommendation factors
+        
+    Returns:
+        Generated explanation string
+    """
+    loop = asyncio.get_event_loop()
+    explanation = await loop.run_in_executor(
+        executor,
+        llm_service.generate_explanation,
+        user_data,
+        product_dict,
+        factors
+    )
+    return explanation
+
+
 @router.get("/{user_id}", response_model=dict)
 async def get_user_recommendations(
     user_id: int,
     limit: int = Query(10, ge=1, le=20, description="Number of recommendations"),
-    algorithm: str = Query("hybrid", description="Algorithm: collaborative, content_based, or hybrid"),
-    cf_method: str = Query("hybrid", description="CF method: user_based, item_based, or hybrid"),
+    use_llm: bool = Query(False, description="Generate AI explanations (requires OPENAI_API_KEY)"),
+    apply_rules: bool = Query(True, description="Apply business rules (purchase filter, category boost, diversity)"),
     db: Session = Depends(get_db)
 ):
     """
-    Get personalized product recommendations for a user with LLM explanations
+    Get personalized product recommendations for a user using the Recommendation Service.
     
+    **Parameters:**
     - **user_id**: User ID
     - **limit**: Number of recommendations to return (default: 10, max: 20)
-    - **algorithm**: Recommendation algorithm (collaborative, content_based, or hybrid)
-    - **cf_method**: For collaborative filtering - user_based, item_based, or hybrid (default: hybrid)
+    - **use_llm**: Generate AI-powered explanations (default: false)
+    - **apply_rules**: Apply business rules for better recommendations (default: true)
     
-    The collaborative filtering uses:
-    - **User-based CF**: Finds top 5 similar users using cosine similarity
-    - **Item-based CF**: Finds similar products based on co-interaction patterns  
-    - **Hybrid CF**: Combines both (60% user-based + 40% item-based)
-    - **Cold-start handling**: Falls back to popular products for new users
+    **Features:**
+    - Hybrid recommendation (60% collaborative + 40% content-based)
+    - Business rules: purchase filter, category boost, diversity
+    - Optional AI explanations with OpenAI GPT
+    - Async processing for fast response times
+    - Detailed scoring breakdown
+    
+    **Response Format:**
+    ```json
+    {
+      "user_id": 1,
+      "recommendations": [
+        {
+          "product": {...},
+          "score": 0.85,
+          "explanation": "AI-generated text",
+          "factors": {...}
+        }
+      ]
+    }
+    ```
     """
     try:
         # Validate user exists
@@ -184,89 +236,145 @@ async def get_user_recommendations(
         if not user:
             raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
         
-        recommendations = []
+        # Initialize recommendation service
+        rec_service = RecommendationService(db)
         
-        if algorithm == "collaborative":
-            recommendations = calculate_collaborative_recommendations(user_id, db, limit, method=cf_method)
-        elif algorithm == "content_based":
-            recommendations = calculate_content_based_recommendations(user_id, db, limit)
-        else:  # hybrid
-            collab_recs = calculate_collaborative_recommendations(user_id, db, limit, method=cf_method)
-            content_recs = calculate_content_based_recommendations(user_id, db, limit)
-            
-            # Combine and deduplicate
-            seen_products = set()
-            for rec in collab_recs + content_recs:
-                if rec["product"].id not in seen_products:
-                    recommendations.append(rec)
-                    seen_products.add(rec["product"].id)
-            
-            recommendations = recommendations[:limit]
+        # Get recommendations using the service
+        recommendations = rec_service.get_recommendations(
+            user_id=user_id,
+            n_recommendations=limit,
+            apply_rules=apply_rules
+        )
         
-        # If no recommendations, return popular products
         if not recommendations:
-            popular_products = db.query(
-                Product,
-                func.count(UserInteraction.id).label('interaction_count')
-            ).join(UserInteraction).group_by(Product.id).order_by(
-                func.count(UserInteraction.id).desc()
-            ).limit(limit).all()
-            
-            recommendations = [
-                {
-                    "product": product,
-                    "score": float(count),
-                    "reason": "popular",
-                    "details": f"This product has {count} interactions from other users"
-                }
-                for product, count in popular_products
-            ]
-        
-        # Format response with LLM explanations
-        recommendations_list = [
-            {
-                "product_id": rec["product"].id,
-                "name": rec["product"].name,
-                "description": rec["product"].description,
-                "category": rec["product"].category,
-                "price": rec["product"].price,
-                "image_url": rec["product"].image_url,
-                "tags": rec["product"].tags,
-                "recommendation_score": rec["score"],
-                "explanation": generate_llm_explanation(
-                    rec["product"],
-                    rec["reason"],
-                    rec["details"]
-                )
+            return {
+                "user_id": user_id,
+                "username": user.username,
+                "total": 0,
+                "recommendations": [],
+                "message": "No recommendations available. This might be a new user."
             }
-            for rec in recommendations
-        ]
+        
+        # Prepare user data for LLM explanations
+        user_data = None
+        llm_service = None
+        
+        if use_llm:
+            llm_service = LLMService()
+            
+            # Get user context
+            preferred_categories = rec_service.get_user_preferred_categories(user_id)
+            purchased_count = len(rec_service.get_purchased_product_ids(user_id))
+            
+            # Get interaction summary
+            interactions = db.query(UserInteraction).filter(
+                UserInteraction.user_id == user_id
+            ).limit(5).all()
+            
+            if interactions:
+                interaction_products = db.query(Product).filter(
+                    Product.id.in_([i.product_id for i in interactions])
+                ).all()
+                interaction_summary = ", ".join([p.name for p in interaction_products[:3]])
+            else:
+                interaction_summary = "various products"
+            
+            user_data = {
+                "user_id": user_id,
+                "username": user.username,
+                "preferred_categories": list(preferred_categories.keys()) if preferred_categories else [],
+                "interaction_summary": interaction_summary,
+                "purchased_count": purchased_count
+            }
+        
+        # Build recommendations list with async LLM processing
+        recommendations_list = []
+        llm_tasks = []
+        
+        for rec in recommendations:
+            # Product details
+            product_info = {
+                "product_id": rec.product_id,
+                "name": rec.product_name,
+                "description": rec.product_description,
+                "category": rec.product_category,
+                "price": rec.product_price,
+                "image_url": rec.product_image_url,
+                "tags": rec.product_tags
+            }
+            
+            recommendation_dict = {
+                "product": product_info,
+                "score": rec.recommendation_score,
+                "factors": rec.reason_factors,
+                "explanation": None  # Will be filled in if use_llm is True
+            }
+            
+            recommendations_list.append(recommendation_dict)
+            
+            # Queue LLM explanation generation
+            if use_llm and llm_service and user_data:
+                product_dict = {
+                    "product_id": rec.product_id,
+                    "name": rec.product_name,
+                    "category": rec.product_category,
+                    "price": rec.product_price,
+                    "description": rec.product_description,
+                    "tags": rec.product_tags
+                }
+                
+                task = generate_llm_explanation_async(
+                    llm_service,
+                    user_data,
+                    product_dict,
+                    rec.reason_factors
+                )
+                llm_tasks.append(task)
+        
+        # Wait for all LLM explanations to complete (async)
+        if llm_tasks:
+            explanations = await asyncio.gather(*llm_tasks)
+            for idx, explanation in enumerate(explanations):
+                recommendations_list[idx]["explanation"] = explanation
         
         return {
             "user_id": user_id,
             "username": user.username,
-            "algorithm": algorithm,
-            "cf_method": cf_method if algorithm in ["collaborative", "hybrid"] else None,
             "total": len(recommendations_list),
+            "use_llm": use_llm,
+            "apply_rules": apply_rules,
             "recommendations": recommendations_list
         }
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating recommendations: {str(e)}"
+        )
 
 
 @router.get("/product/{product_id}/similar", response_model=dict)
 async def get_similar_products(
     product_id: int,
     limit: int = Query(5, ge=1, le=20),
+    use_llm: bool = Query(False, description="Generate AI explanations"),
     db: Session = Depends(get_db)
 ):
     """
-    Get similar products based on a specific product
+    Get similar products based on a specific product using content-based filtering.
     
+    **Parameters:**
     - **product_id**: Product ID
     - **limit**: Number of similar products to return (default: 5, max: 20)
+    - **use_llm**: Generate AI-powered explanations (default: false)
+    
+    **Features:**
+    - Content-based similarity using product features
+    - Category, price, and tags analysis
+    - Optional AI explanations
+    - Fast async processing
     """
     try:
         # Validate product exists
@@ -274,38 +382,99 @@ async def get_similar_products(
         if not product:
             raise HTTPException(status_code=404, detail=f"Product with ID {product_id} not found")
         
-        # Find similar products (same category, exclude current product)
-        similar_products = db.query(Product).filter(
-            and_(
-                Product.category == product.category,
-                Product.id != product_id
-            )
-        ).limit(limit).all()
+        # Initialize recommendation service
+        rec_service = RecommendationService(db)
         
-        similar_list = [
-            {
-                "product_id": p.id,
-                "name": p.name,
-                "description": p.description,
-                "category": p.category,
-                "price": p.price,
-                "image_url": p.image_url,
-                "tags": p.tags,
-                "similarity_reason": f"Same category: {p.category}",
-                "explanation": f"Similar to '{product.name}' - both are in {p.category} category"
+        # Get similar products using content-based filtering
+        similar_recs = rec_service.get_similar_products(
+            product_id=product_id,
+            n_recommendations=limit
+        )
+        
+        if not similar_recs:
+            return {
+                "product_id": product_id,
+                "product_name": product.name,
+                "category": product.category,
+                "total": 0,
+                "similar_products": [],
+                "message": "No similar products found"
             }
-            for p in similar_products
-        ]
+        
+        # Initialize LLM service if needed
+        llm_service = None
+        llm_tasks = []
+        
+        if use_llm:
+            llm_service = LLMService()
+        
+        # Build similar products list
+        similar_list = []
+        
+        for rec in similar_recs:
+            product_info = {
+                "product_id": rec.product_id,
+                "name": rec.product_name,
+                "description": rec.product_description,
+                "category": rec.product_category,
+                "price": rec.product_price,
+                "image_url": rec.product_image_url,
+                "tags": rec.product_tags,
+                "similarity_score": rec.recommendation_score,
+                "similarity_reason": f"Content-based similarity: {rec.recommendation_score:.2f}",
+                "explanation": None
+            }
+            
+            similar_list.append(product_info)
+            
+            # Queue LLM explanation
+            if use_llm and llm_service:
+                # Create minimal user data for explanation
+                user_data = {
+                    "user_id": 0,
+                    "username": "browsing_user",
+                    "preferred_categories": [product.category],
+                    "interaction_summary": product.name,
+                    "purchased_count": 0
+                }
+                
+                product_dict = {
+                    "product_id": rec.product_id,
+                    "name": rec.product_name,
+                    "category": rec.product_category,
+                    "price": rec.product_price,
+                    "description": rec.product_description,
+                    "tags": rec.product_tags
+                }
+                
+                task = generate_llm_explanation_async(
+                    llm_service,
+                    user_data,
+                    product_dict,
+                    rec.reason_factors
+                )
+                llm_tasks.append(task)
+        
+        # Wait for LLM explanations
+        if llm_tasks:
+            explanations = await asyncio.gather(*llm_tasks)
+            for idx, explanation in enumerate(explanations):
+                similar_list[idx]["explanation"] = explanation
         
         return {
             "product_id": product_id,
             "product_name": product.name,
             "category": product.category,
             "total": len(similar_list),
+            "use_llm": use_llm,
             "similar_products": similar_list
         }
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error finding similar products: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error finding similar products: {str(e)}"
+        )
 

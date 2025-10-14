@@ -13,6 +13,7 @@ from app.database import models
 
 # Import routers
 from app.routes import products, users, interactions, recommendations
+from app.routes import recommendations_enhanced
 
 
 @asynccontextmanager
@@ -57,6 +58,7 @@ app.include_router(products.router)
 app.include_router(users.router)
 app.include_router(interactions.router)
 app.include_router(recommendations.router)
+app.include_router(recommendations_enhanced.router)
 
 
 @app.get("/")
@@ -70,7 +72,8 @@ async def root():
             "products": "/products",
             "users": "/users",
             "interactions": "/interactions",
-            "recommendations": "/recommendations"
+            "recommendations": "/recommendations",
+            "recommendations_enhanced": "/api/recommendations"
         }
     }
 

@@ -1,70 +1,97 @@
 /**
  * API Service for Product Recommender
- * Handles all API calls to the backend
+ * Handles all API calls to the backend using Axios
  */
+
+import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-/**
- * Generic fetch wrapper with error handling
- */
-async function fetchAPI(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('API call failed:', error);
-    throw error;
+// Create axios instance with default configuration
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    console.log(`Making API request to: ${config.method?.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-}
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    return response.data;
+  },
+  (error) => {
+    console.error('API call failed:', error);
+    if (error.response) {
+      // Server responded with error status
+      throw new Error(`API Error: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`);
+    } else if (error.request) {
+      // Request was made but no response received
+      throw new Error('Network Error: No response from server');
+    } else {
+      // Something else happened
+      throw new Error(`Request Error: ${error.message}`);
+    }
+  }
+);
 
 // Product API calls
 export async function getProducts() {
-  return fetchAPI('/products');
+  return api.get('/products');
 }
 
 export async function getProduct(id) {
-  return fetchAPI(`/products/${id}`);
+  return api.get(`/products/${id}`);
 }
 
 export async function createProduct(productData) {
-  return fetchAPI('/products', {
-    method: 'POST',
-    body: JSON.stringify(productData),
-  });
+  return api.post('/products', productData);
 }
 
 // Recommendation API calls
 export async function getUserRecommendations(userId, limit = 5) {
-  return fetchAPI(`/recommendations/user/${userId}?limit=${limit}`);
+  return api.get(`/recommendations/user/${userId}`, {
+    params: { limit }
+  });
 }
 
 export async function getSimilarProducts(productId, limit = 5) {
-  return fetchAPI(`/recommendations/product/${productId}?limit=${limit}`);
+  return api.get(`/recommendations/product/${productId}`, {
+    params: { limit }
+  });
 }
 
 // User API calls
 export async function getUser(userId) {
-  return fetchAPI(`/users/${userId}`);
+  return api.get(`/users/${userId}`);
 }
 
 export async function createUser(userData) {
-  return fetchAPI('/users', {
-    method: 'POST',
-    body: JSON.stringify(userData),
+  return api.post('/users', userData);
+}
+
+// Interaction API calls
+export async function recordInteraction(userId, productId, interactionType, rating = null) {
+  return api.post('/interactions', {
+    user_id: userId,
+    product_id: productId,
+    interaction_type: interactionType,
+    rating: rating
   });
 }
+
+// Export the axios instance for custom requests
+export default api;
 
