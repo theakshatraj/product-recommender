@@ -6,6 +6,7 @@ import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import CSStyleTest from './components/CSStyleTest';
 
 function App() {
   const [selectedUser, setSelectedUser] = useState(null);
@@ -37,6 +38,7 @@ function App() {
           <Route path="/products/:id" element={<ProductDetailPage selectedUser={selectedUser} onUserSelect={setSelectedUser} />} />
           <Route path="/recommendations" element={<RecommendationsPage selectedUser={selectedUser} onUserSelect={setSelectedUser} />} />
           <Route path="/analytics" element={<AnalyticsPage selectedUser={selectedUser} onUserSelect={setSelectedUser} />} />
+          <Route path="/css-test" element={<CSStyleTest />} />
         </Routes>
       </div>
     </Router>
