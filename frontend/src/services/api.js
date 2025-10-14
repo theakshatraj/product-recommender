@@ -67,13 +67,27 @@ export async function getUserRecommendations(userId, limit = 5) {
   });
 }
 
+export async function getDetailedRecommendations(userId, limit = 10) {
+  return api.get(`/recommendations/user/${userId}/detailed`, {
+    params: { limit }
+  });
+}
+
 export async function getSimilarProducts(productId, limit = 5) {
   return api.get(`/recommendations/product/${productId}`, {
     params: { limit }
   });
 }
 
+export async function getRecommendationExplanation(userId, productId) {
+  return api.get(`/recommendations/explain/${userId}/${productId}`);
+}
+
 // User API calls
+export async function getUsers() {
+  return api.get('/users');
+}
+
 export async function getUser(userId) {
   return api.get(`/users/${userId}`);
 }
@@ -90,6 +104,33 @@ export async function recordInteraction(userId, productId, interactionType, rati
     interaction_type: interactionType,
     rating: rating
   });
+}
+
+// Analytics API calls
+export async function getUserAnalytics(userId) {
+  return api.get(`/analytics/user/${userId}`);
+}
+
+export async function getCategoryHeatmap(userId) {
+  return api.get(`/analytics/user/${userId}/categories`);
+}
+
+export async function getRecommendationAccuracy(userId) {
+  return api.get(`/analytics/user/${userId}/accuracy`);
+}
+
+export async function getPopularProducts(limit = 10) {
+  return api.get('/analytics/popular', {
+    params: { limit }
+  });
+}
+
+export async function getUserBehaviorTimeline(userId) {
+  return api.get(`/analytics/user/${userId}/timeline`);
+}
+
+export async function getSystemMetrics() {
+  return api.get('/analytics/system');
 }
 
 // Export the axios instance for custom requests

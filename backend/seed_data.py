@@ -509,24 +509,22 @@ def main():
     db = SessionLocal()
     
     try:
-        print("🌱 Seeding database with sample data...")
+        print("Seeding database with sample data...")
         
         # Check if data already exists
         existing_products = db.query(Product).count()
         if existing_products > 0:
-            confirm = input(f"⚠️  Database already has {existing_products} products. Continue? (yes/no): ")
-            if confirm.lower() != "yes":
-                print("❌ Seeding cancelled")
-                return
+            print(f"Database already has {existing_products} products. Skipping seeding.")
+            return
         
         products = seed_products(db)
         users = seed_users(db)
         seed_interactions(db, users, products)
         
-        print("✅ Database seeded successfully!")
+        print("Database seeded successfully!")
         
     except Exception as e:
-        print(f"❌ Error seeding database: {e}")
+        print(f"Error seeding database: {e}")
         db.rollback()
     finally:
         db.close()

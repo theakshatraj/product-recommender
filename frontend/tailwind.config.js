@@ -8,29 +8,41 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+          600: '#2563eb', // Blue 600 for brand actions and highlights
         },
-        purple: {
-          50: '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          300: '#d8b4fe',
-          400: '#c084fc',
-          500: '#a855f7',
-          600: '#9333ea',
-          700: '#7c3aed',
-          800: '#6b21a8',
-          900: '#581c87',
+        neutral: {
+          900: '#0f172a', // Slate 900 for text
+          700: '#334155', // Slate 700 for muted text
+          100: '#f1f5f9', // Slate 100 for background
+        },
+        accent: {
+          500: '#f59e0b', // Amber 500 for status highlights and badges
         }
+      },
+      fontFamily: {
+        'heading': ['DM Sans', 'sans-serif'],
+        'body': ['Inter', 'sans-serif'],
+      },
+      fontSize: {
+        'xs': '0.75rem',   // 12px - minimum readable size
+        'sm': '0.875rem',  // 14px - minimum body text
+        'base': '1rem',    // 16px
+        'lg': '1.125rem',  // 18px
+        'xl': '1.25rem',   // 20px
+        '2xl': '1.5rem',   // 24px
+        '3xl': '1.875rem', // 30px
+        '4xl': '2.25rem',  // 36px
+      },
+      lineHeight: {
+        'relaxed': '1.6',
+      },
+      spacing: {
+        '18': '4.5rem',
+        '88': '22rem',
+      },
+      transitionProperty: {
+        'height': 'height',
+        'spacing': 'margin, padding',
       }
     },
   },

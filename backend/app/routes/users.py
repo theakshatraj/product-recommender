@@ -16,6 +16,37 @@ router = APIRouter(
 )
 
 
+@router.get("/", response_model=List[dict])
+async def get_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all users with pagination
+    
+    - **skip**: Number of items to skip (default: 0)
+    - **limit**: Maximum number of items to return (default: 100, max: 1000)
+    """
+    try:
+        users = db.query(DBUser).offset(skip).limit(limit).all()
+        
+        users_list = [
+            {
+                "id": user.id,
+                "name": user.username,
+                "username": user.username,
+                "email": user.email,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            }
+            for user in users
+        ]
+        
+        return users_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving users: {str(e)}")
+
+
 @router.get("/{user_id}", response_model=dict)
 async def get_user(user_id: int, db: Session = Depends(get_db)):
     """
