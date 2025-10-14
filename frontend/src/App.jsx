@@ -7,6 +7,8 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import RecommendationsPage from './pages/RecommendationsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import CSStyleTest from './components/CSStyleTest';
+import BackendConnectionTest from './components/BackendConnectionTest';
+import ApiDebugger from './components/ApiDebugger';
 
 function App() {
   const [selectedUser, setSelectedUser] = useState(null);
@@ -39,6 +41,8 @@ function App() {
           <Route path="/recommendations" element={<RecommendationsPage selectedUser={selectedUser} onUserSelect={setSelectedUser} />} />
           <Route path="/analytics" element={<AnalyticsPage selectedUser={selectedUser} onUserSelect={setSelectedUser} />} />
           <Route path="/css-test" element={<CSStyleTest />} />
+          <Route path="/backend-test" element={<BackendConnectionTest />} />
+          <Route path="/api-debug" element={<ApiDebugger />} />
         </Routes>
       </div>
     </Router>

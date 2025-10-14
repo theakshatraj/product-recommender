@@ -49,7 +49,9 @@ api.interceptors.response.use(
 
 // Product API calls
 export async function getProducts() {
-  return api.get('/products');
+  const response = await api.get('/products');
+  // Handle paginated response format
+  return response.products || response;
 }
 
 export async function getProduct(id) {

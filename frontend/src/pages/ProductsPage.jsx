@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ProductManager from '../components/ProductManager';
 import { getProducts } from '../services/api';
 import { ShoppingBag, Search, Filter, Grid, List } from 'lucide-react';
 
@@ -20,12 +21,11 @@ const ProductsPage = () => {
     try {
       setLoading(true);
       const data = await getProducts();
-      // Ensure data is an array, fallback to empty array if not
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('Failed to load products');
       console.error(err);
-      setProducts([]); // Set empty array on error
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -70,10 +70,15 @@ const ProductsPage = () => {
               Browse All Products
             </h1>
             
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Discover our complete collection of products with advanced filtering and search capabilities
-            </p>
-          </div>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-6">
+                Discover our complete collection of products with advanced filtering and search capabilities
+              </p>
+              
+              {/* Add Product Button */}
+              <div className="flex justify-center">
+                <ProductManager onProductAdded={fetchProducts} />
+              </div>
+            </div>
 
           {/* Search and Filters */}
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">

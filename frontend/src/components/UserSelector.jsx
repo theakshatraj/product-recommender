@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, User } from 'lucide-react';
+import { getUsers } from '../services/api';
 
 const UserSelector = ({ selectedUser, onUserSelect, className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,23 +10,16 @@ const UserSelector = ({ selectedUser, onUserSelect, className = '' }) => {
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // Load users from localStorage or generate mock data
+  // Load users from API
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        // Try to load from localStorage first
-        const savedUsers = localStorage.getItem('recommender_users');
-        if (savedUsers) {
-          setUsers(JSON.parse(savedUsers));
-        } else {
-          // Generate mock users if none exist
-          const mockUsers = generateMockUsers();
-          setUsers(mockUsers);
-          localStorage.setItem('recommender_users', JSON.stringify(mockUsers));
-        }
+        setLoading(true);
+        const data = await getUsers();
+        setUsers(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Failed to load users:', error);
-        setUsers(generateMockUsers());
+        setUsers([]);
       } finally {
         setLoading(false);
       }
@@ -47,16 +41,6 @@ const UserSelector = ({ selectedUser, onUserSelect, className = '' }) => {
     }
   }, [users, selectedUser, onUserSelect]);
 
-  const generateMockUsers = () => [
-    { id: 1, name: "Alice Johnson", email: "alice@example.com" },
-    { id: 2, name: "Bob Smith", email: "bob@example.com" },
-    { id: 3, name: "Carol Davis", email: "carol@example.com" },
-    { id: 4, name: "David Wilson", email: "david@example.com" },
-    { id: 5, name: "Eva Brown", email: "eva@example.com" },
-    { id: 6, name: "Frank Miller", email: "frank@example.com" },
-    { id: 7, name: "Grace Lee", email: "grace@example.com" },
-    { id: 8, name: "Henry Taylor", email: "henry@example.com" }
-  ];
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

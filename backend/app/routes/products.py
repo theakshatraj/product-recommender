@@ -156,6 +156,51 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error retrieving product: {str(e)}")
 
 
+@router.post("/", response_model=dict)
+async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+    """
+    Create a new product
+    
+    - **name**: Product name
+    - **description**: Product description
+    - **price**: Product price
+    - **category**: Product category
+    - **image_url**: Product image URL (optional)
+    - **tags**: Product tags (optional)
+    """
+    try:
+        # Create new product instance
+        db_product = DBProduct(
+            name=product.name,
+            description=product.description,
+            price=product.price,
+            category=product.category,
+            image_url=product.image_url,
+            tags=product.tags or [],
+            created_at=datetime.utcnow()
+        )
+        
+        # Add to database
+        db.add(db_product)
+        db.commit()
+        db.refresh(db_product)
+        
+        return {
+            "id": db_product.id,
+            "name": db_product.name,
+            "description": db_product.description,
+            "category": db_product.category,
+            "price": db_product.price,
+            "image_url": db_product.image_url,
+            "tags": db_product.tags,
+            "created_at": db_product.created_at.isoformat(),
+            "message": "Product created successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
+
+
 @router.get("/categories/list", response_model=dict)
 async def get_categories(db: Session = Depends(get_db)):
     """

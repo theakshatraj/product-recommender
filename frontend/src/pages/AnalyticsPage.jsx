@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { 
   getUsers, 
@@ -87,69 +88,27 @@ const AnalyticsPage = () => {
         getUserBehaviorTimeline(selectedUser.id)
       ]);
 
-      // Set analytics data with fallbacks
-      setAnalytics(analyticsRes.status === 'fulfilled' ? analyticsRes.value : generateMockAnalytics());
-      setCategoryData(categoryRes.status === 'fulfilled' ? categoryRes.value : generateMockCategoryData());
-      setAccuracyData(accuracyRes.status === 'fulfilled' ? accuracyRes.value : generateMockAccuracyData());
-      setPopularProducts(popularRes.status === 'fulfilled' ? popularRes.value : generateMockPopularProducts());
-      setTimelineData(timelineRes.status === 'fulfilled' ? timelineRes.value : generateMockTimelineData());
+      // Set analytics data from API responses
+      setAnalytics(analyticsRes.status === 'fulfilled' ? analyticsRes.value : null);
+      setCategoryData(categoryRes.status === 'fulfilled' ? categoryRes.value : []);
+      setAccuracyData(accuracyRes.status === 'fulfilled' ? accuracyRes.value : null);
+      setPopularProducts(popularRes.status === 'fulfilled' ? popularRes.value : []);
+      setTimelineData(timelineRes.status === 'fulfilled' ? timelineRes.value : []);
 
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
       setError('Failed to load analytics data');
-      // Set mock data on error
-      setAnalytics(generateMockAnalytics());
-      setCategoryData(generateMockCategoryData());
-      setAccuracyData(generateMockAccuracyData());
-      setPopularProducts(generateMockPopularProducts());
-      setTimelineData(generateMockTimelineData());
+      // Set empty data on error
+      setAnalytics(null);
+      setCategoryData([]);
+      setAccuracyData(null);
+      setPopularProducts([]);
+      setTimelineData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock data generators
-  const generateMockAnalytics = () => ({
-    total_interactions: Math.floor(Math.random() * 100) + 50,
-    total_products_viewed: Math.floor(Math.random() * 50) + 20,
-    total_purchases: Math.floor(Math.random() * 20) + 5,
-    avg_session_duration: Math.floor(Math.random() * 30) + 10,
-    favorite_categories: ['Electronics', 'Books', 'Clothing']
-  });
-
-  const generateMockCategoryData = () => [
-    { category: 'Electronics', interactions: Math.floor(Math.random() * 50) + 20, percentage: 35 },
-    { category: 'Books', interactions: Math.floor(Math.random() * 40) + 15, percentage: 28 },
-    { category: 'Clothing', interactions: Math.floor(Math.random() * 30) + 10, percentage: 20 },
-    { category: 'Home', interactions: Math.floor(Math.random() * 25) + 8, percentage: 12 },
-    { category: 'Sports', interactions: Math.floor(Math.random() * 20) + 5, percentage: 5 }
-  ];
-
-  const generateMockAccuracyData = () => ({
-    overall_accuracy: 0.87,
-    click_through_rate: 0.23,
-    conversion_rate: 0.15,
-    recommendations_accepted: 42,
-    recommendations_total: 48
-  });
-
-  const generateMockPopularProducts = () => [
-    { name: 'Wireless Headphones', category: 'Electronics', interactions: 156 },
-    { name: 'Programming Book', category: 'Books', interactions: 134 },
-    { name: 'Smart Watch', category: 'Electronics', interactions: 128 },
-    { name: 'Running Shoes', category: 'Sports', interactions: 115 },
-    { name: 'Coffee Maker', category: 'Home', interactions: 98 }
-  ];
-
-  const generateMockTimelineData = () => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days.map(day => ({
-      day,
-      views: Math.floor(Math.random() * 20) + 5,
-      cart: Math.floor(Math.random() * 8) + 2,
-      purchases: Math.floor(Math.random() * 3) + 1
-    }));
-  };
 
   const CategoryHeatmap = ({ data }) => (
     <div className="bg-white rounded-xl shadow-lg p-6">
@@ -363,16 +322,39 @@ const AnalyticsPage = () => {
 
         {error && !loading && (
           <div className="text-center py-20">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 max-w-md mx-auto">
-              <div className="text-yellow-600 text-lg font-semibold mb-2">Using Demo Data</div>
-              <p className="text-yellow-600 mb-6">
-                Analytics API not available. Showing mock data for demonstration.
+            <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
+              <div className="text-red-600 text-lg font-semibold mb-2">Analytics Unavailable</div>
+              <p className="text-red-600 mb-6">
+                Failed to load analytics data. Please ensure the backend is running and try again.
               </p>
+              <button
+                onClick={fetchAnalytics}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
             </div>
           </div>
         )}
         
-        {!loading && analytics && (
+        {!loading && !error && !analytics && (
+          <div className="text-center py-20">
+            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-8 max-w-md mx-auto">
+              <div className="text-neutral-600 text-lg font-semibold mb-2">No Analytics Data</div>
+              <p className="text-neutral-600 mb-6">
+                No analytics data available for this user. Start interacting with products to generate analytics.
+              </p>
+              <Link
+                to="/"
+                className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                Browse Products
+              </Link>
+            </div>
+          </div>
+        )}
+        
+        {!loading && !error && analytics && (
           <div className="space-y-8">
             {/* Interaction Summary */}
             <InteractionSummary data={analytics} />

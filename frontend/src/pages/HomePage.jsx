@@ -22,100 +22,30 @@ const HomePage = () => {
       const data = await getUsers();
       if (Array.isArray(data) && data.length > 0) {
         setUsers(data);
-        setSelectedUser(data[0]);
+        if (!selectedUser) {
+          setSelectedUser(data[0]);
+        }
       } else {
-        // Use mock users for demonstration
-        const mockUsers = generateMockUsers();
-        setUsers(mockUsers);
-        setSelectedUser(mockUsers[0]);
+        setUsers([]);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      // Set mock users on error
-      const mockUsers = generateMockUsers();
-      setUsers(mockUsers);
-      setSelectedUser(mockUsers[0]);
+      setUsers([]);
     }
   };
-
-  const generateMockUsers = () => [
-    { id: 1, name: "Alice Johnson" },
-    { id: 2, name: "Bob Smith" },
-    { id: 3, name: "Carol Davis" },
-    { id: 4, name: "David Wilson" },
-    { id: 5, name: "Eva Brown" }
-  ];
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
       const data = await getProducts();
-      // Ensure data is an array, fallback to mock data if not
-      if (Array.isArray(data) && data.length > 0) {
-        setProducts(data);
-      } else {
-        // Use mock data for demonstration
-        setProducts(generateMockProducts());
-      }
+      setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch products:', error);
-      // Set mock data on error to prevent map errors
-      setProducts(generateMockProducts());
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const generateMockProducts = () => [
-    {
-      id: 1,
-      name: "Wireless Bluetooth Headphones",
-      category: "Electronics",
-      price: 89.99,
-      description: "High-quality wireless headphones with noise cancellation",
-      image_url: "https://via.placeholder.com/300x200/6366f1/ffffff?text=Headphones"
-    },
-    {
-      id: 2,
-      name: "Programming Fundamentals Book",
-      category: "Books",
-      price: 29.99,
-      description: "Comprehensive guide to programming fundamentals",
-      image_url: "https://via.placeholder.com/300x200/10b981/ffffff?text=Book"
-    },
-    {
-      id: 3,
-      name: "Smart Fitness Watch",
-      category: "Electronics",
-      price: 199.99,
-      description: "Advanced fitness tracking with heart rate monitoring",
-      image_url: "https://via.placeholder.com/300x200/8b5cf6/ffffff?text=Watch"
-    },
-    {
-      id: 4,
-      name: "Running Shoes",
-      category: "Sports",
-      price: 79.99,
-      description: "Comfortable running shoes with excellent cushioning",
-      image_url: "https://via.placeholder.com/300x200/f59e0b/ffffff?text=Shoes"
-    },
-    {
-      id: 5,
-      name: "Coffee Maker",
-      category: "Home",
-      price: 149.99,
-      description: "Automatic coffee maker with programmable features",
-      image_url: "https://via.placeholder.com/300x200/ef4444/ffffff?text=Coffee"
-    },
-    {
-      id: 6,
-      name: "Wireless Mouse",
-      category: "Electronics",
-      price: 39.99,
-      description: "Ergonomic wireless mouse with precision tracking",
-      image_url: "https://via.placeholder.com/300x200/06b6d4/ffffff?text=Mouse"
-    }
-  ];
 
   const handleInteraction = async (productId, interactionType, rating = null) => {
     if (!selectedUser) return;

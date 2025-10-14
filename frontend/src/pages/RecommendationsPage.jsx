@@ -41,12 +41,13 @@ const RecommendationsPage = () => {
   const fetchUsers = async () => {
     try {
       const data = await getUsers();
-      setUsers(data);
-      if (data.length > 0) {
+      setUsers(Array.isArray(data) ? data : []);
+      if (Array.isArray(data) && data.length > 0 && !selectedUser) {
         setSelectedUser(data[0]);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
+      setUsers([]);
     }
   };
 
