@@ -20,7 +20,7 @@ const ProductsPage = () => {
     try {
       setLoading(true);
       const data = await getProducts();
-      // Ensure data is an array
+      // Ensure data is an array, fallback to empty array if not
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('Failed to load products');

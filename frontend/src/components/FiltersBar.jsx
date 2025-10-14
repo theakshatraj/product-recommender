@@ -1,240 +1,243 @@
 import { useState, useEffect } from 'react';
-import { Filter, X, DollarSign, Tag } from 'lucide-react';
+import { X, Filter, DollarSign } from 'lucide-react';
 
 const FiltersBar = ({ 
   products = [], 
   onFiltersChange, 
   className = '' 
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    categories: [],
-    priceRange: { min: 0, max: 1000 },
-    tags: [],
-    search: ''
-  });
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState([]);
 
-  // Extract unique categories and tags from products
-  const categories = [...new Set(products.map(product => product.category).filter(Boolean))];
-  const allTags = products.flatMap(product => product.tags || []).filter(Boolean);
-  const uniqueTags = [...new Set(allTags)];
-
-  // Update parent component when filters change
+  // Extract unique categories from products
   useEffect(() => {
+    const categories = [...new Set(products.map(product => product.category))].filter(Boolean);
+    setAvailableCategories(categories);
+    
+    // Set max price based on available products
+    if (products.length > 0) {
+      const maxPrice = Math.max(...products.map(p => p.price));
+      setPriceRange(prev => ({ ...prev, max: Math.ceil(maxPrice) }));
+    }
+  }, [products]);
+
+  // Notify parent of filter changes
+  useEffect(() => {
+    const filters = {
+      categories: selectedCategories,
+      priceRange,
+      searchTerm: searchTerm.trim()
+    };
     onFiltersChange(filters);
-  }, [filters, onFiltersChange]);
+  }, [selectedCategories, priceRange, searchTerm, onFiltersChange]);
 
   const handleCategoryToggle = (category) => {
-    setFilters(prev => ({
-      ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter(c => c !== category)
-        : [...prev.categories, category]
-    }));
-  };
-
-  const handleTagToggle = (tag) => {
-    setFilters(prev => ({
-      ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter(t => t !== tag)
-        : [...prev.tags, tag]
-    }));
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
 
   const handlePriceChange = (type, value) => {
-    setFilters(prev => ({
+    setPriceRange(prev => ({
       ...prev,
-      priceRange: {
-        ...prev.priceRange,
-        [type]: parseFloat(value) || 0
-      }
-    }));
-  };
-
-  const handleSearchChange = (value) => {
-    setFilters(prev => ({
-      ...prev,
-      search: value
+      [type]: Math.max(0, Math.min(prev.max, parseInt(value) || 0))
     }));
   };
 
   const clearAllFilters = () => {
-    setFilters({
-      categories: [],
-      priceRange: { min: 0, max: 1000 },
-      tags: [],
-      search: ''
-    });
+    setSelectedCategories([]);
+    setPriceRange({ min: 0, max: Math.max(...products.map(p => p.price), 1000) });
+    setSearchTerm('');
   };
 
-  const hasActiveFilters = filters.categories.length > 0 || 
-                          filters.tags.length > 0 || 
-                          filters.priceRange.min > 0 || 
-                          filters.priceRange.max < 1000 || 
-                          filters.search.trim() !== '';
-
-  const activeFiltersCount = filters.categories.length + filters.tags.length + 
-                            (filters.priceRange.min > 0 ? 1 : 0) + 
-                            (filters.priceRange.max < 1000 ? 1 : 0) +
-                            (filters.search.trim() !== '' ? 1 : 0);
+  const hasActiveFilters = selectedCategories.length > 0 || 
+                          priceRange.min > 0 || 
+                          priceRange.max < Math.max(...products.map(p => p.price), 1000) ||
+                          searchTerm.trim().length > 0;
 
   return (
-    <div className={`bg-white border-b border-gray-200 sticky top-0 z-40 ${className}`}>
-      {/* Mobile Toggle Button */}
-      <div className="lg:hidden p-4 border-b border-gray-100">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium text-neutral-900 transition-colors duration-150"
-          aria-expanded={isOpen}
-          aria-controls="filters-panel"
-        >
-          <Filter className="w-4 h-4" />
-          Filters
-          {activeFiltersCount > 0 && (
-            <span className="px-2 py-1 bg-primary-600 text-white text-xs rounded-full">
-              {activeFiltersCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Filters Panel */}
-      <div 
-        id="filters-panel"
-        className={`${isOpen ? 'block' : 'hidden'} lg:block`}
-      >
-        <div className="p-4 space-y-4">
-          {/* Search */}
-          <div className="space-y-2">
-            <label htmlFor="search" className="block text-sm font-medium text-neutral-900">
-              Search Products
-            </label>
-            <input
-              id="search"
-              type="text"
-              placeholder="Search by name, description..."
-              value={filters.search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
-            />
+    <div className={`bg-white border-b border-neutral-200 ${className}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center space-x-2">
+            <Filter className="w-5 h-5 text-neutral-700" />
+            <h2 className="text-lg font-heading font-semibold text-neutral-900">Filters</h2>
+            {hasActiveFilters && (
+              <span className="bg-primary-600 text-white text-xs px-2 py-1 rounded-full">
+                {selectedCategories.length + (priceRange.min > 0 ? 1 : 0) + (priceRange.max < Math.max(...products.map(p => p.price), 1000) ? 1 : 0) + (searchTerm.trim().length > 0 ? 1 : 0)}
+              </span>
+            )}
           </div>
-
-          {/* Categories */}
-          {categories.length > 0 && (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-neutral-900">
-                Categories
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <label
-                    key={category}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters.categories.includes(category)}
-                      onChange={() => handleCategoryToggle(category)}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-600"
-                      aria-describedby={`category-${category}`}
-                    />
-                    <span 
-                      id={`category-${category}`}
-                      className="text-sm text-neutral-700"
-                    >
-                      {category}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Tags */}
-          {uniqueTags.length > 0 && (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-neutral-900">
-                Tags
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {uniqueTags.slice(0, 10).map((tag) => (
-                  <label
-                    key={tag}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filters.tags.includes(tag)}
-                      onChange={() => handleTagToggle(tag)}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-600"
-                      aria-describedby={`tag-${tag}`}
-                    />
-                    <span 
-                      id={`tag-${tag}`}
-                      className="text-sm text-neutral-700"
-                    >
-                      {tag}
-                    </span>
-                  </label>
-                ))}
-                {uniqueTags.length > 10 && (
-                  <span className="text-xs text-neutral-500">
-                    +{uniqueTags.length - 10} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Price Range */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-neutral-900">
-              Price Range
-            </label>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <label htmlFor="min-price" className="sr-only">Minimum price</label>
-                <input
-                  id="min-price"
-                  type="number"
-                  placeholder="Min"
-                  min="0"
-                  value={filters.priceRange.min || ''}
-                  onChange={(e) => handlePriceChange('min', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
-                />
-              </div>
-              <DollarSign className="w-4 h-4 text-neutral-500" />
-              <div className="flex-1">
-                <label htmlFor="max-price" className="sr-only">Maximum price</label>
-                <input
-                  id="max-price"
-                  type="number"
-                  placeholder="Max"
-                  min="0"
-                  value={filters.priceRange.max || ''}
-                  onChange={(e) => handlePriceChange('max', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <div className="pt-2 border-t border-gray-100">
+          
+          <div className="flex items-center space-x-2">
+            {hasActiveFilters && (
               <button
                 onClick={clearAllFilters}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors duration-150"
+                className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
               >
-                <X className="w-4 h-4" />
-                Clear all filters
+                Clear all
               </button>
+            )}
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="md:hidden p-1 text-neutral-700 hover:text-neutral-900 transition-colors"
+              aria-label={isCollapsed ? 'Expand filters' : 'Collapse filters'}
+            >
+              <Filter className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Filters Content */}
+        <div className={`transition-all duration-200 ${isCollapsed ? 'hidden md:block' : 'block'}`}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-4">
+            {/* Search */}
+            <div className="lg:col-span-1">
+              <label htmlFor="search" className="block text-sm font-medium text-neutral-900 mb-2">
+                Search products
+              </label>
+              <input
+                id="search"
+                type="text"
+                placeholder="Search by name or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
             </div>
-          )}
+
+            {/* Categories */}
+            <div className="lg:col-span-1">
+              <fieldset>
+                <legend className="block text-sm font-medium text-neutral-900 mb-2">
+                  Categories
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {availableCategories.map(category => (
+                    <label
+                      key={category}
+                      className="flex items-center cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.includes(category)}
+                        onChange={() => handleCategoryToggle(category)}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                          selectedCategories.includes(category)
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                        }`}
+                      >
+                        {category}
+                        {selectedCategories.includes(category) && (
+                          <X className="w-3 h-3 ml-1" />
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+
+            {/* Price Range */}
+            <div className="lg:col-span-1">
+              <fieldset>
+                <legend className="block text-sm font-medium text-neutral-900 mb-2">
+                  Price Range
+                </legend>
+                <div className="flex items-center space-x-3">
+                  <div className="flex-1">
+                    <label htmlFor="min-price" className="sr-only">Minimum price</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                      <input
+                        id="min-price"
+                        type="number"
+                        min="0"
+                        max={priceRange.max}
+                        value={priceRange.min}
+                        onChange={(e) => handlePriceChange('min', e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                        placeholder="Min"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="text-neutral-500">to</div>
+                  
+                  <div className="flex-1">
+                    <label htmlFor="max-price" className="sr-only">Maximum price</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                      <input
+                        id="max-price"
+                        type="number"
+                        min={priceRange.min}
+                        max={Math.max(...products.map(p => p.price), 1000)}
+                        value={priceRange.max}
+                        onChange={(e) => handlePriceChange('max', e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                        placeholder="Max"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Price Range Slider */}
+                <div className="mt-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max={Math.max(...products.map(p => p.price), 1000)}
+                    value={priceRange.max}
+                    onChange={(e) => setPriceRange(prev => ({ ...prev, max: parseInt(e.target.value) }))}
+                    className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #f1f5f9 0%, #f1f5f9 ${(priceRange.min / Math.max(...products.map(p => p.price), 1000)) * 100}%, #2563eb ${(priceRange.min / Math.max(...products.map(p => p.price), 1000)) * 100}%, #2563eb ${(priceRange.max / Math.max(...products.map(p => p.price), 1000)) * 100}%, #f1f5f9 ${(priceRange.max / Math.max(...products.map(p => p.price), 1000)) * 100}%, #f1f5f9 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-neutral-600 mt-1">
+                    <span>${priceRange.min}</span>
+                    <span>${priceRange.max}</span>
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+          </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .slider::-webkit-slider-thumb {
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #2563eb;
+          cursor: pointer;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .slider::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #2563eb;
+          cursor: pointer;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+      `}</style>
     </div>
   );
 };

@@ -129,10 +129,6 @@ export async function getUserBehaviorTimeline(userId) {
   return api.get(`/analytics/user/${userId}/timeline`);
 }
 
-export async function getSystemMetrics() {
-  return api.get('/analytics/system');
-}
-
 // Export the axios instance for custom requests
 export default api;
 

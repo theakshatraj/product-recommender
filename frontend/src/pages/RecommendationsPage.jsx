@@ -1,58 +1,52 @@
 import { useState, useEffect } from 'react';
-import { getUsers, getUserRecommendations, getDetailedRecommendations } from '../services/api';
-import { useToast } from '../hooks/useToast';
-import ToastContainer from '../components/ToastContainer';
-import EnhancedRecommendationCard from '../components/EnhancedRecommendationCard';
+import { Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
-import UserSelector from '../components/UserSelector';
-import { Sparkles, RefreshCw, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { getUsers, getDetailedRecommendations, getUserRecommendations } from '../services/api';
+import { 
+  Sparkles, 
+  RefreshCw, 
+  User, 
+  TrendingUp, 
+  Eye, 
+  ShoppingCart, 
+  Heart, 
+  Info, 
+  Star,
+  Target,
+  Zap,
+  Award,
+  ArrowRight
+} from 'lucide-react';
 
 const RecommendationsPage = () => {
-  const [recommendations, setRecommendations] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [recommendations, setRecommendations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
   const [limit, setLimit] = useState(10);
-  const [includeExplanations, setIncludeExplanations] = useState(true);
-  const [lastRefreshTime, setLastRefreshTime] = useState(null);
+  const [useDetailed, setUseDetailed] = useState(true);
+  const [error, setError] = useState(null);
 
-  const { showToast } = useToast();
-
-  // Load users on component mount
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Load recommendations when user changes
   useEffect(() => {
     if (selectedUser) {
-      fetchRecommendations();
+    fetchRecommendations();
     }
-  }, [selectedUser, limit, includeExplanations]);
+  }, [selectedUser, limit, useDetailed]);
 
   const fetchUsers = async () => {
     try {
       const data = await getUsers();
-      const usersArray = Array.isArray(data) ? data : [];
-      setUsers(usersArray);
-      
-      // Load selected user from localStorage if exists
-      const savedUserId = localStorage.getItem('selectedUserId');
-      if (savedUserId && usersArray.length > 0) {
-        const savedUser = usersArray.find(user => user.id.toString() === savedUserId);
-        if (savedUser) {
-          setSelectedUser(savedUser);
-        } else if (usersArray.length > 0) {
-          setSelectedUser(usersArray[0]);
-        }
-      } else if (usersArray.length > 0) {
-        setSelectedUser(usersArray[0]);
+      setUsers(data);
+      if (data.length > 0) {
+        setSelectedUser(data[0]);
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      showToast('Failed to load users', 'error');
     }
   };
 
@@ -63,31 +57,22 @@ const RecommendationsPage = () => {
       setLoading(true);
       setError(null);
       
-      // Try to get detailed recommendations first, fallback to basic ones
       let data;
-      try {
-        if (includeExplanations) {
+      if (useDetailed) {
+        try {
           data = await getDetailedRecommendations(selectedUser.id, limit);
-        } else {
+        } catch (detailedError) {
+          console.warn('Detailed recommendations failed, falling back to basic:', detailedError);
           data = await getUserRecommendations(selectedUser.id, limit);
         }
-      } catch (detailedError) {
-        console.warn('Detailed recommendations failed, falling back to basic:', detailedError);
+      } else {
         data = await getUserRecommendations(selectedUser.id, limit);
       }
       
-      // Ensure data is an array
-      const recommendationsData = Array.isArray(data) ? data : [];
-      setRecommendations(recommendationsData);
-      setLastRefreshTime(new Date());
-      
-      if (recommendationsData.length > 0) {
-        showToast(`Found ${recommendationsData.length} personalized recommendations!`, 'success');
-      }
+      setRecommendations(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch recommendations:', err);
       setError('Failed to load recommendations. Please try again.');
-      showToast('Failed to load recommendations', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -99,241 +84,360 @@ const RecommendationsPage = () => {
     await fetchRecommendations();
   };
 
-  const handleUserSelect = (user) => {
-    setSelectedUser(user);
+  const getScoreColor = (score) => {
+    if (score >= 0.8) return 'from-green-500 to-emerald-500';
+    if (score >= 0.6) return 'from-yellow-500 to-orange-500';
+    if (score >= 0.4) return 'from-orange-500 to-red-500';
+    return 'from-red-500 to-pink-500';
   };
 
-  if (!selectedUser && users.length > 0) {
+  const getScoreText = (score) => {
+    if (score >= 0.8) return 'Excellent Match';
+    if (score >= 0.6) return 'Good Match';
+    if (score >= 0.4) return 'Fair Match';
+    return 'Low Match';
+  };
+
+  const getScoreIcon = (score) => {
+    if (score >= 0.8) return <Award className="w-5 h-5" />;
+    if (score >= 0.6) return <Target className="w-5 h-5" />;
+    if (score >= 0.4) return <Zap className="w-5 h-5" />;
+    return <Info className="w-5 h-5" />;
+  };
+
+  const RecommendationCard = ({ recommendation, rank }) => {
+    const { product, score, explanation, factors } = recommendation;
+    const [showFactors, setShowFactors] = useState(false);
+
+    if (!product) return null;
+
     return (
-      <main className="min-h-screen bg-neutral-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-16">
-            <div className="bg-white rounded-lg border border-gray-200 p-8 max-w-md mx-auto">
-              <h2 className="text-2xl font-heading font-semibold text-neutral-900 mb-4">
-                Select a User
-              </h2>
-              <p className="text-neutral-700 mb-6">
-                Choose a user to view personalized recommendations.
+      <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
+        {/* Header with rank and score */}
+        <div className="relative p-6 pb-4">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                #{rank}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
+                  {product.name}
+                </h3>
+                <p className="text-gray-600">{product.category}</p>
+              </div>
+            </div>
+            
+            <div className="text-right">
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r ${getScoreColor(score)} text-white`}>
+                {getScoreIcon(score)}
+                <span className="ml-1">{getScoreText(score)}</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {(score * 100).toFixed(0)}%
               </p>
-              <UserSelector 
-                selectedUser={selectedUser} 
-                onUserSelect={handleUserSelect}
-                className="w-full"
-              />
+            </div>
+          </div>
+
+          {/* Score Progress Bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm text-gray-600 mb-1">
+              <span>Recommendation Score</span>
+              <span>{(score * 100).toFixed(1)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div 
+                className={`h-3 rounded-full bg-gradient-to-r ${getScoreColor(score)} transition-all duration-1000 ease-out`}
+                style={{ width: `${score * 100}%` }}
+              ></div>
+            </div>
+          </div>
+
+          {/* Product Image and Basic Info */}
+          <div className="flex items-center space-x-4 mb-4">
+            <img 
+              src={product.image_url || 'https://via.placeholder.com/80x80/6366f1/ffffff?text=Product'} 
+              alt={product.name}
+              className="w-20 h-20 object-cover rounded-xl"
+            />
+            <div className="flex-1">
+              <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                {product.description}
+              </p>
+              <div className="text-2xl font-bold text-gray-900">
+                ${product.price.toFixed(2)}
+              </div>
             </div>
           </div>
         </div>
-      </main>
+
+        {/* LLM Explanation */}
+        {explanation && (
+          <div className="px-6 pb-4">
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-purple-800 mb-2">Why we recommend this:</h4>
+                  <p className="text-purple-700 leading-relaxed text-sm">
+                    {explanation}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Scoring Factors Tooltip */}
+        {factors && (
+          <div className="px-6 pb-4">
+            <div className="relative">
+              <button
+                onClick={() => setShowFactors(!showFactors)}
+                className="flex items-center space-x-2 text-purple-600 hover:text-purple-700 text-sm font-medium transition-colors"
+              >
+                <Info className="w-4 h-4" />
+                <span>Why this score?</span>
+                <ArrowRight className={`w-3 h-3 transition-transform ${showFactors ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {showFactors && (
+                <div className="mt-3 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h5 className="font-medium text-gray-900 mb-2">Scoring Factors:</h5>
+                  <div className="space-y-2">
+                    {Object.entries(factors).map(([factor, value]) => (
+                      <div key={factor} className="flex justify-between items-center text-sm">
+                        <span className="text-gray-700 capitalize">
+                          {factor.replace('_', ' ')}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-16 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${value * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-gray-600 w-8 text-right">
+                            {(value * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="px-6 pb-6">
+          <div className="grid grid-cols-3 gap-3">
+            <Link
+              to={`/products/${product.id}`}
+              className="flex items-center justify-center space-x-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              <span>View</span>
+            </Link>
+            <button className="flex items-center justify-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors">
+              <ShoppingCart className="w-4 h-4" />
+              <span>Cart</span>
+            </button>
+            <button className="flex items-center justify-center space-x-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors">
+              <Heart className="w-4 h-4" />
+              <span>Buy</span>
+            </button>
+          </div>
+        </div>
+      </div>
     );
-  }
+  };
 
   return (
-    <main className="min-h-screen bg-neutral-100">
-      {/* Header Section */}
-      <section className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-heading font-bold text-neutral-900 mb-4">
-              Your Recommendations
+    <div className="min-h-screen bg-neutral-100">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-neutral-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="text-center max-w-4xl mx-auto">
+            <div className="inline-flex items-center bg-primary-100 rounded-full px-4 py-2 mb-6">
+              <Sparkles className="w-5 h-5 text-primary-600 mr-2" />
+              <span className="text-primary-700 font-medium text-sm">AI-Powered Recommendations</span>
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-heading font-bold text-neutral-900 mb-6">
+              Your Personal Recommendations
             </h1>
-            <p className="text-lg text-neutral-700 max-w-2xl mx-auto">
-              Discover products carefully selected for you based on your preferences and behavior patterns.
+            
+            <p className="text-lg text-neutral-700 max-w-2xl mx-auto mb-8 leading-relaxed">
+              Discover products carefully selected for you based on your preferences and behavior patterns
             </p>
-          </div>
 
-          {/* User Selection and Controls */}
-          <div className="bg-neutral-50 rounded-lg border border-gray-200 p-6 max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
-              {/* User Selector */}
-              <div className="lg:col-span-1">
-                <label className="block text-sm font-medium text-neutral-900 mb-2">
-                  Select User
-                </label>
-                <UserSelector 
-                  selectedUser={selectedUser} 
-                  onUserSelect={handleUserSelect}
+            {/* User Selection and Controls */}
+            <div className="bg-gray-50 rounded-xl p-6 max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                {/* User Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select User
+                  </label>
+                  <select
+                    value={selectedUser?.id || ''}
+                    onChange={(e) => {
+                      const user = users.find(u => u.id.toString() === e.target.value);
+                      setSelectedUser(user);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name || `User ${user.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Limit Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Number of Recommendations
+                  </label>
+                  <select
+                    value={limit}
+                    onChange={(e) => setLimit(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={20}>20</option>
+                  </select>
+                </div>
+
+                {/* Detailed Explanations Toggle */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Include LLM Explanations
+                  </label>
+                  <button
+                    onClick={() => setUseDetailed(!useDetailed)}
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      useDetailed
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                        : 'bg-gray-100 text-gray-700 border border-gray-200'
+                    }`}
+                  >
+                    {useDetailed ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+
+                {/* Refresh Button */}
+                <div className="flex items-end">
+                  <button
+                    onClick={handleRefresh}
+                    disabled={loading || refreshing}
+                    className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {loading && (
+          <div className="flex justify-center items-center py-20">
+            <LoadingSpinner />
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="text-center py-20">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
+              <div className="text-red-600 text-lg font-semibold mb-2">Error Loading Recommendations</div>
+              <p className="text-red-600 mb-6">{error}</p>
+              <button
+                onClick={handleRefresh}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {!loading && !error && recommendations.length === 0 && selectedUser && (
+          <div className="text-center py-20">
+            <div className="bg-white rounded-2xl shadow-lg p-12 max-w-md mx-auto">
+              <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Recommendations Yet</h3>
+              <p className="text-gray-600 mb-6">
+                We need more information about your preferences to provide personalized recommendations.
+              </p>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">Try these actions:</p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Browse different product categories</li>
+                  <li>• Rate some products you like</li>
+                  <li>• View product details</li>
+                </ul>
+              </div>
+              <Link
+                to="/"
+                className="inline-block mt-6 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Browse Products
+              </Link>
+            </div>
+          </div>
+        )}
+        
+        {!loading && !error && recommendations.length > 0 && (
+          <div className="space-y-8">
+            {/* Results Header */}
+            <div className="text-center">
+              <div className="inline-flex items-center space-x-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
+                <Sparkles className="w-4 h-4" />
+                <span>{recommendations.length} Personalized Recommendations Found</span>
+              </div>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                These products are ranked by relevance to your preferences and behavior patterns
+              </p>
+            </div>
+
+            {/* Recommendations Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            {recommendations.map((rec, index) => (
+                <RecommendationCard 
+                  key={rec.product?.id || index} 
+                  recommendation={rec} 
+                  rank={index + 1}
                 />
-              </div>
-
-              {/* Limit Selection */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-2">
-                  Number of Recommendations
-                </label>
-                <select
-                  value={limit}
-                  onChange={(e) => setLimit(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={15}>15</option>
-                  <option value={20}>20</option>
-                </select>
-              </div>
-
-              {/* LLM Explanations Toggle */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-2">
-                  Include LLM Explanations
-                </label>
-                <button
-                  onClick={() => setIncludeExplanations(!includeExplanations)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                    includeExplanations
-                      ? 'bg-primary-100 text-primary-600'
-                      : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
-                  }`}
-                >
-                  {includeExplanations ? (
-                    <ToggleRight className="w-4 h-4" />
-                  ) : (
-                    <ToggleLeft className="w-4 h-4" />
-                  )}
-                  {includeExplanations ? 'Enabled' : 'Disabled'}
-                </button>
-              </div>
-
-              {/* Refresh Button */}
-              <div className="flex items-end">
-                <button
-                  onClick={handleRefresh}
-                  disabled={loading || refreshing}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                >
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
+              ))}
             </div>
 
-            {/* Last Refresh Time */}
-            {lastRefreshTime && (
-              <div className="mt-4 text-center">
-                <span className="text-sm text-neutral-500">
-                  Last updated: {lastRefreshTime.toLocaleTimeString()}
-                </span>
-              </div>
-            )}
+            {/* Load More Button */}
+            <div className="text-center pt-8">
+              <button
+                onClick={() => setLimit(prev => prev + 10)}
+                className="bg-white border-2 border-purple-600 text-purple-600 px-8 py-3 rounded-lg font-medium hover:bg-purple-600 hover:text-white transition-all duration-200"
+              >
+                Load More Recommendations
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* Content Section */}
-      <section className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Loading State */}
-          {loading && (
-            <div className="flex justify-center items-center py-20">
-              <LoadingSpinner />
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && !loading && (
-            <div className="text-center py-20">
-              <div className="bg-white rounded-lg border border-gray-200 p-8 max-w-md mx-auto">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <h3 className="text-lg font-heading font-semibold text-neutral-900 mb-2">
-                  Error Loading Recommendations
-                </h3>
-                <p className="text-neutral-700 mb-6">{error}</p>
-                <button
-                  onClick={handleRefresh}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
-                >
-                  Try Again
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* No Recommendations State */}
-          {!loading && !error && recommendations.length === 0 && selectedUser && (
-            <div className="text-center py-20">
-              <div className="bg-white rounded-lg border border-gray-200 p-8 max-w-md mx-auto">
-                <Sparkles className="w-12 h-12 text-primary-600 mx-auto mb-4" />
-                <h3 className="text-lg font-heading font-semibold text-neutral-900 mb-2">
-                  No Recommendations Yet
-                </h3>
-                <p className="text-neutral-700 mb-6">
-                  We need more information about your preferences to provide personalized recommendations.
-                </p>
-                <div className="space-y-3 mb-6">
-                  <p className="text-sm text-neutral-600 font-medium">Try these actions to improve recommendations:</p>
-                  <ul className="text-sm text-neutral-600 space-y-1 text-left">
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-primary-600 rounded-full mr-3"></span>
-                      Browse different product categories
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-primary-600 rounded-full mr-3"></span>
-                      View product details
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-primary-600 rounded-full mr-3"></span>
-                      Add products to your cart
-                    </li>
-                    <li className="flex items-center">
-                      <span className="w-2 h-2 bg-primary-600 rounded-full mr-3"></span>
-                      Make some purchases
-                    </li>
-                  </ul>
-                </div>
-                <button
-                  onClick={() => window.location.href = '/'}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200"
-                >
-                  Browse Products
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Recommendations Display */}
-          {!loading && !error && recommendations.length > 0 && (
-            <div className="space-y-6">
-              {/* Results Header */}
-              <div className="text-center">
-                <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                  <Sparkles className="w-4 h-4" />
-                  {recommendations.length} Personalized Recommendations Found
-                </div>
-                <p className="text-neutral-700 max-w-2xl mx-auto">
-                  These products are ranked by relevance to your preferences and behavior patterns
-                </p>
-              </div>
-
-              {/* Recommendations List */}
-              <div className="space-y-6">
-                {recommendations.map((rec, index) => (
-                  <EnhancedRecommendationCard
-                    key={rec.product?.id || index}
-                    recommendation={rec}
-                    selectedUser={selectedUser}
-                    rank={index + 1}
-                  />
-                ))}
-              </div>
-
-              {/* Load More Button */}
-              <div className="text-center pt-8">
-                <button
-                  onClick={() => setLimit(prev => prev + 10)}
-                  className="px-6 py-3 bg-white border-2 border-primary-600 text-primary-600 rounded-lg hover:bg-primary-600 hover:text-white transition-colors duration-200 font-medium"
-                >
-                  Load More Recommendations
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Toast Container */}
-      <ToastContainer />
-    </main>
+        )}
+      </div>
+    </div>
   );
 };
 
 export default RecommendationsPage;
+

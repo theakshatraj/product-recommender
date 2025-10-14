@@ -23,8 +23,8 @@ body {
   line-height: 1.6;
   color: var(--color-neutral-900);
   background-color: var(--color-neutral-100);
-  min-height: 100vh;
   min-width: 320px;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
