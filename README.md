@@ -420,17 +420,6 @@ Each user has realistic interaction patterns:
 - [ ] **Load Balancing**: Horizontal scaling capabilities
 - [ ] **Database Sharding**: Partition data across multiple databases
 
-## 📸 Screenshots
-
-### Dashboard Overview
-![Dashboard](https://via.placeholder.com/800x400/6366f1/ffffff?text=Recommendation+Dashboard)
-
-### Product Recommendations
-![Recommendations](https://via.placeholder.com/800x400/10b981/ffffff?text=AI-Powered+Recommendations)
-
-### LLM Explanations
-![LLM Explanations](https://via.placeholder.com/800x400/f59e0b/ffffff?text=Personalized+Explanations)
-
 ## 🧪 Testing
 
 ### Backend Tests
