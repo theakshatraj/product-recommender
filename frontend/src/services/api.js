@@ -108,28 +108,6 @@ export async function recordInteraction(userId, productId, interactionType, rati
   });
 }
 
-// Analytics API calls
-export async function getUserAnalytics(userId) {
-  return api.get(`/analytics/user/${userId}`);
-}
-
-export async function getCategoryHeatmap(userId) {
-  return api.get(`/analytics/user/${userId}/categories`);
-}
-
-export async function getRecommendationAccuracy(userId) {
-  return api.get(`/analytics/user/${userId}/accuracy`);
-}
-
-export async function getPopularProducts(limit = 10) {
-  return api.get('/analytics/popular', {
-    params: { limit }
-  });
-}
-
-export async function getUserBehaviorTimeline(userId) {
-  return api.get(`/analytics/user/${userId}/timeline`);
-}
 
 // Export the axios instance for custom requests
 export default api;

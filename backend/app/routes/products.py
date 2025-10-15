@@ -20,7 +20,7 @@ router = APIRouter(
 @router.get("/", response_model=dict)
 async def get_products(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(10, ge=1, le=100, description="Number of items to return"),
+    limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
     category: Optional[str] = Query(None, description="Filter by category"),
     min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
     max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),

@@ -15,6 +15,7 @@ from app.database.connection import get_db
 from app.database.models import User, Product, UserInteraction, InteractionType
 from app.services.recommendation_service import RecommendationService
 from app.services.llm_service import LLMService
+from app.recommender.collaborative_filtering import CollaborativeFiltering
 
 router = APIRouter(
     prefix="/recommendations",
@@ -191,7 +192,7 @@ async def generate_llm_explanation_async(
     return explanation
 
 
-@router.get("/{user_id}", response_model=dict)
+@router.get("/user/{user_id}", response_model=dict)
 async def get_user_recommendations(
     user_id: int,
     limit: int = Query(10, ge=1, le=20, description="Number of recommendations"),
@@ -352,6 +353,60 @@ async def get_user_recommendations(
         raise HTTPException(
             status_code=500,
             detail=f"Error generating recommendations: {str(e)}"
+        )
+
+
+@router.get("/user/{user_id}/detailed", response_model=dict)
+async def get_detailed_recommendations(
+    user_id: int,
+    limit: int = Query(10, ge=1, le=20, description="Number of recommendations"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed recommendations with enhanced explanations.
+    This is an alias for the enhanced recommendations endpoint.
+    """
+    try:
+        # Validate user exists
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+        
+        # Initialize recommendation service
+        rec_service = RecommendationService(db)
+        
+        # Get recommendations using the service
+        recommendations = rec_service.get_recommendations(
+            user_id=user_id,
+            n_recommendations=limit,
+            apply_rules=True
+        )
+        
+        if not recommendations:
+            return {
+                "user_id": user_id,
+                "username": user.username,
+                "total": 0,
+                "recommendations": [],
+                "message": "No recommendations available. This might be a new user."
+            }
+        
+        # Convert to dict format
+        recommendations_list = [rec.to_dict() for rec in recommendations]
+        
+        return {
+            "user_id": user_id,
+            "username": user.username,
+            "total": len(recommendations_list),
+            "recommendations": recommendations_list
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating detailed recommendations: {str(e)}"
         )
 
 

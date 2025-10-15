@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProductManager from '../components/ProductManager';
-import { getProducts } from '../services/api';
+import { getProducts, recordInteraction } from '../services/api';
+import { useUser } from '../contexts/UserContext';
 import { ShoppingBag, Search, Filter, Grid, List } from 'lucide-react';
 
 const ProductsPage = () => {
+  const { selectedUser } = useUser();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,6 +30,17 @@ const ProductsPage = () => {
       setProducts([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInteraction = async (productId, interactionType, rating = null) => {
+    if (!selectedUser) return;
+
+    try {
+      await recordInteraction(selectedUser.id, productId, interactionType, rating);
+      console.log(`Interaction recorded: ${interactionType} for product ${productId}`);
+    } catch (error) {
+      console.error('Failed to record interaction:', error);
     }
   };
 
@@ -200,7 +213,12 @@ const ProductsPage = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProducts.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard 
+                    key={product.id} 
+                    product={product} 
+                    onInteraction={handleInteraction}
+                    selectedUser={selectedUser}
+                  />
                 ))}
               </div>
             )}

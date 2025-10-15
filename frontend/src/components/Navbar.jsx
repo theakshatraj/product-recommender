@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, Home, Sparkles, Menu, X, BarChart3, Search } from 'lucide-react';
+import { ShoppingBag, Home, Sparkles, Menu, X, Search } from 'lucide-react';
 import { useState } from 'react';
+import { useUser } from '../contexts/UserContext';
 import UserSelector from './UserSelector';
 
-const Navbar = ({ selectedUser, onUserSelect }) => {
+const Navbar = () => {
+  const { selectedUser, changeUser } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
@@ -12,7 +14,6 @@ const Navbar = ({ selectedUser, onUserSelect }) => {
     { path: '/', label: 'Home', icon: Home },
     { path: '/products', label: 'Products', icon: ShoppingBag },
     { path: '/recommendations', label: 'Recommendations', icon: Sparkles },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   const isActive = (path) => {
@@ -80,8 +81,6 @@ const Navbar = ({ selectedUser, onUserSelect }) => {
 
             {/* User Selector */}
             <UserSelector 
-              selectedUser={selectedUser} 
-              onUserSelect={onUserSelect}
               className="w-56"
             />
           </div>
@@ -122,8 +121,6 @@ const Navbar = ({ selectedUser, onUserSelect }) => {
 
               {/* Mobile User Selector */}
               <UserSelector 
-                selectedUser={selectedUser} 
-                onUserSelect={onUserSelect}
                 className="w-full"
               />
 

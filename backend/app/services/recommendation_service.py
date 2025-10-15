@@ -83,8 +83,8 @@ class RecommendationService:
         self.content_based_filter = ContentBasedRecommender(db)
         
         # Weights for hybrid recommendation
-        self.collaborative_weight = 0.6
-        self.content_based_weight = 0.4
+        self.collaborative_weight = 0.4
+        self.content_based_weight = 0.6
         
         # Business rule parameters
         self.category_boost_factor = 1.3  # 30% boost for preferred categories
@@ -179,6 +179,20 @@ class RecommendationService:
         """
         logger.info(f"Generating hybrid recommendations for user {user_id}")
         
+        # Get user's preferred categories
+        preferred_categories = self.get_user_preferred_categories(user_id)
+        
+        # Adjust weights based on user's category preferences
+        if preferred_categories:
+            # If user has clear category preferences, favor content-based filtering
+            collaborative_weight = 0.3
+            content_based_weight = 0.7
+            logger.info(f"User has clear preferences: {list(preferred_categories.keys())}, adjusting weights")
+        else:
+            # If no clear preferences, use default weights
+            collaborative_weight = self.collaborative_weight
+            content_based_weight = self.content_based_weight
+        
         # Get recommendations from both methods
         collab_recs = self.collaborative_filter.get_recommendations(
             user_id, n_recommendations, method='hybrid'
@@ -198,20 +212,20 @@ class RecommendationService:
         max_collab = max(collab_scores.values()) if collab_scores else 1.0
         max_content = max(content_scores.values()) if content_scores else 1.0
         
-        # Combine scores with weights
+        # Combine scores with adjusted weights
         hybrid_scores = []
         for product_id in all_product_ids:
             collab_score = collab_scores.get(product_id, 0) / max_collab
             content_score = content_scores.get(product_id, 0) / max_content
             
             combined_score = (
-                collab_score * self.collaborative_weight +
-                content_score * self.content_based_weight
+                collab_score * collaborative_weight +
+                content_score * content_based_weight
             )
             
             score_components = {
-                'collaborative_score': collab_score * self.collaborative_weight,
-                'content_based_score': content_score * self.content_based_weight,
+                'collaborative_score': collab_score * collaborative_weight,
+                'content_based_score': content_score * content_based_weight,
                 'combined_base_score': combined_score
             }
             
@@ -264,13 +278,17 @@ class RecommendationService:
         products = self.db.query(Product).filter(Product.id.in_(product_ids)).all()
         product_category_map = {p.id: p.category for p in products}
         
-        # Apply category boost
+        # Apply category boost with stronger boost for top preferred categories
         boosted_recs = []
         for product_id, score, components in filtered_recs:
             category = product_category_map.get(product_id)
             
             if category in preferred_categories:
-                category_boost = self.category_boost_factor
+                # Stronger boost for the most preferred category
+                if preferred_categories and category == max(preferred_categories, key=preferred_categories.get):
+                    category_boost = self.category_boost_factor * 1.5  # 50% extra boost for top category
+                else:
+                    category_boost = self.category_boost_factor
                 boosted_score = score * category_boost
                 components['category_boost'] = category_boost
                 logger.debug(f"Product {product_id} boosted by {category_boost}x (category: {category})")

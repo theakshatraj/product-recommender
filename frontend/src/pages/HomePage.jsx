@@ -1,38 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, Target, Brain, Search, ArrowRight, Star, User, ShoppingCart, Eye, Heart, CheckCircle, AlertCircle } from 'lucide-react';
-import { getUsers, getProducts, recordInteraction } from '../services/api';
+import { Sparkles, Target, Brain, Search, ArrowRight, Star, User, Eye, Heart, CheckCircle, AlertCircle } from 'lucide-react';
+import { getProducts, recordInteraction } from '../services/api';
+import { useUser } from '../contexts/UserContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const HomePage = () => {
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const { selectedUser, users } = useUser();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [interactionFeedback, setInteractionFeedback] = useState({});
   const [showHero, setShowHero] = useState(true);
 
   useEffect(() => {
-    fetchUsers();
     fetchProducts();
   }, []);
 
-  const fetchUsers = async () => {
-    try {
-      const data = await getUsers();
-      if (Array.isArray(data) && data.length > 0) {
-        setUsers(data);
-        if (!selectedUser) {
-          setSelectedUser(data[0]);
-        }
-      } else {
-        setUsers([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      setUsers([]);
-    }
-  };
 
   const fetchProducts = async () => {
     try {
@@ -66,9 +49,9 @@ const HomePage = () => {
         ...prev,
         [key]: { 
           status: 'success', 
-          message: interactionType === 'view' ? 'View recorded!' :
-                  interactionType === 'cart' ? 'Added to cart!' :
-                  interactionType === 'purchase' ? 'Purchase recorded!' :
+          message: interactionType === 'view' ? 'View recorded! We\'re learning your preferences...' :
+                  interactionType === 'cart' ? 'Added to cart! This helps us understand your interests.' :
+                  interactionType === 'purchase' ? 'Purchase recorded! Great choice - this improves your recommendations!' :
                   'Interaction recorded!'
         }
       }));
@@ -120,7 +103,6 @@ const HomePage = () => {
 
   const ProductCard = ({ product }) => {
     const viewKey = `${selectedUser?.id}-${product.id}-view`;
-    const cartKey = `${selectedUser?.id}-${product.id}-cart`;
     const purchaseKey = `${selectedUser?.id}-${product.id}-purchase`;
 
   return (
@@ -145,13 +127,6 @@ const HomePage = () => {
                 title="View Product"
               >
                 <Eye className="w-4 h-4 text-gray-700" />
-              </button>
-              <button 
-                onClick={() => handleInteraction(product.id, 'cart')}
-                className="bg-white p-2 rounded-full shadow-lg hover:bg-purple-50 transition-colors"
-                title="Add to Cart"
-              >
-                <ShoppingCart className="w-4 h-4 text-gray-700" />
               </button>
             </div>
           </div>
@@ -195,41 +170,23 @@ const HomePage = () => {
               )}
             </button>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleInteraction(product.id, 'cart')}
-                disabled={!selectedUser}
-                className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-100 hover:text-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {interactionFeedback[cartKey]?.status === 'loading' ? (
-                  <div className="flex items-center justify-center">
-                    {getFeedbackIcon('loading')}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center space-x-1">
-                    <ShoppingCart className="w-4 h-4" />
-                    <span>Cart</span>
-                  </div>
-                )}
-              </button>
-
-              <button
-                onClick={() => handleInteraction(product.id, 'purchase')}
-                disabled={!selectedUser}
-                className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {interactionFeedback[purchaseKey]?.status === 'loading' ? (
-                  <div className="flex items-center justify-center">
-                    {getFeedbackIcon('loading')}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center space-x-1">
-                    <Heart className="w-4 h-4" />
-                    <span>Buy</span>
-                  </div>
-                )}
-              </button>
-            </div>
+            <button
+              onClick={() => handleInteraction(product.id, 'purchase')}
+              disabled={!selectedUser}
+              className="w-full bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {interactionFeedback[purchaseKey]?.status === 'loading' ? (
+                <div className="flex items-center justify-center space-x-2">
+                  {getFeedbackIcon('loading')}
+                  <span>Buying...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2">
+                  <Heart className="w-4 h-4" />
+                  <span>Buy Now</span>
+                </div>
+              )}
+            </button>
           </div>
 
           {/* Feedback Messages */}
@@ -259,29 +216,17 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      {/* User Selection Header */}
+      {/* Navigation Header */}
       <div className="bg-white shadow-sm border-b border-neutral-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
                 <User className="w-5 h-5 text-primary-600" />
-                <span className="text-sm font-medium text-neutral-700">Select User:</span>
+                <span className="text-sm font-medium text-neutral-700">
+                  Welcome, {selectedUser?.name || `User ${selectedUser?.id}` || 'Guest'}
+                </span>
               </div>
-              <select
-                value={selectedUser?.id || ''}
-                onChange={(e) => {
-                  const user = users.find(u => u.id.toString() === e.target.value);
-                  setSelectedUser(user);
-                }}
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-              >
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.name || `User ${user.id}`}
-                  </option>
-                ))}
-              </select>
             </div>
             
             <div className="flex items-center space-x-3">
@@ -352,7 +297,7 @@ const HomePage = () => {
               Browse Our Products
             </h2>
             <p className="text-lg text-neutral-700 max-w-2xl mx-auto leading-relaxed">
-              {selectedUser ? `Welcome, ${selectedUser.name || `User ${selectedUser.id}`}! Interact with products to improve your recommendations.` : 'Select a user to start interacting with products.'}
+              {selectedUser ? `Welcome, ${selectedUser.name || `User ${selectedUser.id}`}! Click on products to view them, add to cart, or buy them. We'll learn from your interactions to provide better recommendations.` : 'Select a user to start interacting with products.'}
             </p>
           </div>
 

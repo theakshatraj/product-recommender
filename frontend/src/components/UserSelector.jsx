@@ -1,45 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Search, User } from 'lucide-react';
-import { getUsers } from '../services/api';
+import { useUser } from '../contexts/UserContext';
 
-const UserSelector = ({ selectedUser, onUserSelect, className = '' }) => {
+const UserSelector = ({ className = '' }) => {
+  const { selectedUser, users, changeUser, loading } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
-
-  // Load users from API
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        setLoading(true);
-        const data = await getUsers();
-        setUsers(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Failed to load users:', error);
-        setUsers([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUsers();
-  }, []);
-
-  // Load selected user from localStorage
-  useEffect(() => {
-    const savedUserId = localStorage.getItem('selectedUserId');
-    if (savedUserId && users.length > 0) {
-      const user = users.find(u => u.id.toString() === savedUserId);
-      if (user && !selectedUser) {
-        onUserSelect(user);
-      }
-    } else if (users.length > 0 && !selectedUser) {
-      onUserSelect(users[0]);
-    }
-  }, [users, selectedUser, onUserSelect]);
 
 
   const filteredUsers = users.filter(user =>
@@ -48,7 +16,7 @@ const UserSelector = ({ selectedUser, onUserSelect, className = '' }) => {
   );
 
   const handleUserSelect = (user) => {
-    onUserSelect(user);
+    changeUser(user.id);
     localStorage.setItem('selectedUserId', user.id.toString());
     setIsOpen(false);
     setSearchTerm('');

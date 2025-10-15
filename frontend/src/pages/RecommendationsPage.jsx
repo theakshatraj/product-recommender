@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getUsers, getDetailedRecommendations, getUserRecommendations } from '../services/api';
+import { getDetailedRecommendations, getUserRecommendations } from '../services/api';
+import { useUser } from '../contexts/UserContext';
 import { 
   Sparkles, 
   RefreshCw, 
@@ -19,8 +20,7 @@ import {
 } from 'lucide-react';
 
 const RecommendationsPage = () => {
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const { selectedUser } = useUser();
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,27 +29,11 @@ const RecommendationsPage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
     if (selectedUser) {
-    fetchRecommendations();
+      fetchRecommendations();
     }
   }, [selectedUser, limit, useDetailed]);
 
-  const fetchUsers = async () => {
-    try {
-      const data = await getUsers();
-      setUsers(Array.isArray(data) ? data : []);
-      if (Array.isArray(data) && data.length > 0 && !selectedUser) {
-        setSelectedUser(data[0]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      setUsers([]);
-    }
-  };
 
   const fetchRecommendations = async () => {
     if (!selectedUser) return;
@@ -70,10 +54,22 @@ const RecommendationsPage = () => {
         data = await getUserRecommendations(selectedUser.id, limit);
       }
       
-      setRecommendations(Array.isArray(data) ? data : []);
+      // Handle both array and object responses
+      if (Array.isArray(data)) {
+        setRecommendations(data);
+      } else if (data && data.recommendations) {
+        setRecommendations(data.recommendations);
+      } else {
+        setRecommendations([]);
+      }
     } catch (err) {
       console.error('Failed to fetch recommendations:', err);
-      setError('Failed to load recommendations. Please try again.');
+      // For new users or API errors, show browse products message instead of error
+      if (err.message.includes('422') || err.message.includes('404') || err.message.includes('No recommendations')) {
+        setError('browse_products');
+      } else {
+        setError('Failed to load recommendations. Please try again.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,10 +103,39 @@ const RecommendationsPage = () => {
   };
 
   const RecommendationCard = ({ recommendation, rank }) => {
-    const { product, score, explanation, factors } = recommendation;
+    // Handle the API data structure
+    const product = recommendation.product_details;
+    const score = recommendation.recommendation_score;
+    const factors = recommendation.reason_factors;
     const [showFactors, setShowFactors] = useState(false);
+    const [showExplanation, setShowExplanation] = useState(false);
 
     if (!product) return null;
+
+    // Generate explanation based on factors
+    const generateExplanation = () => {
+      if (!factors) return "No explanation available";
+      
+      const collaborativeScore = factors.collaborative_score || 0;
+      const contentScore = factors.content_based_score || 0;
+      const categoryBoost = factors.category_boost || 1;
+      
+      let explanation = `This product scored ${(score * 100).toFixed(1)}% based on: `;
+      
+      if (collaborativeScore > 0.3) {
+        explanation += "Similar users have shown interest in this product. ";
+      }
+      if (contentScore > 0.1) {
+        explanation += "It matches your content preferences. ";
+      }
+      if (categoryBoost > 1.1) {
+        explanation += "You've shown interest in this category before. ";
+      }
+      
+      explanation += `The final score combines collaborative filtering (${(collaborativeScore * 100).toFixed(1)}%) and content-based filtering (${(contentScore * 100).toFixed(1)}%) with category boost (${categoryBoost}x).`;
+      
+      return explanation;
+    };
 
     return (
       <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group">
@@ -172,24 +197,22 @@ const RecommendationsPage = () => {
           </div>
         </div>
 
-        {/* LLM Explanation */}
-        {explanation && (
-          <div className="px-6 pb-4">
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-purple-800 mb-2">Why we recommend this:</h4>
-                  <p className="text-purple-700 leading-relaxed text-sm">
-                    {explanation}
-                  </p>
-                </div>
+        {/* AI Explanation */}
+        <div className="px-6 pb-4">
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-purple-800 mb-2">Why we recommend this:</h4>
+                <p className="text-purple-700 leading-relaxed text-sm">
+                  {generateExplanation()}
+                </p>
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Scoring Factors Tooltip */}
         {factors && (
@@ -273,32 +296,12 @@ const RecommendationsPage = () => {
             </h1>
             
             <p className="text-lg text-neutral-700 max-w-2xl mx-auto mb-8 leading-relaxed">
-              Discover products carefully selected for you based on your preferences and behavior patterns
+              Discover products carefully selected for you based on your browsing history, interactions, and preferences
             </p>
 
-            {/* User Selection and Controls */}
+            {/* Controls */}
             <div className="bg-gray-50 rounded-xl p-6 max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                {/* User Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select User
-                  </label>
-                  <select
-                    value={selectedUser?.id || ''}
-                    onChange={(e) => {
-                      const user = users.find(u => u.id.toString() === e.target.value);
-                      setSelectedUser(user);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    {users.map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.name || `User ${user.id}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
 
                 {/* Limit Selection */}
                 <div>
@@ -361,15 +364,36 @@ const RecommendationsPage = () => {
 
         {error && !loading && (
           <div className="text-center py-20">
-            <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
-              <div className="text-red-600 text-lg font-semibold mb-2">Error Loading Recommendations</div>
-              <p className="text-red-600 mb-6">{error}</p>
-              <button
-                onClick={handleRefresh}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Try Again
-              </button>
+            <div className="bg-white rounded-2xl shadow-lg p-12 max-w-md mx-auto">
+              <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Start Exploring Products!</h3>
+              <p className="text-gray-600 mb-6">
+                We'll learn about your preferences as you browse, view, and interact with products. 
+                The more you explore, the better our recommendations will become!
+              </p>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">Here's what you can do:</p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Browse different product categories</li>
+                  <li>• View product details to learn more</li>
+                  <li>• Add products to your cart</li>
+                  <li>• Make purchases to help us understand your preferences</li>
+                </ul>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <Link
+                  to="/products"
+                  className="inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Browse Products
+                </Link>
+                <button
+                  onClick={handleRefresh}
+                  className="inline-block bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Check for New Recommendations
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -378,24 +402,34 @@ const RecommendationsPage = () => {
           <div className="text-center py-20">
             <div className="bg-white rounded-2xl shadow-lg p-12 max-w-md mx-auto">
               <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Recommendations Yet</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Start Exploring Products!</h3>
               <p className="text-gray-600 mb-6">
-                We need more information about your preferences to provide personalized recommendations.
+                We'll learn about your preferences as you browse, view, and interact with products. 
+                The more you explore, the better our recommendations will become!
               </p>
               <div className="space-y-3">
-                <p className="text-sm text-gray-500">Try these actions:</p>
+                <p className="text-sm text-gray-500">Here's what you can do:</p>
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>• Browse different product categories</li>
-                  <li>• Rate some products you like</li>
-                  <li>• View product details</li>
+                  <li>• View product details to learn more</li>
+                  <li>• Add products to your cart</li>
+                  <li>• Make purchases to help us understand your preferences</li>
                 </ul>
               </div>
-              <Link
-                to="/"
-                className="inline-block mt-6 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                Browse Products
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <Link
+                  to="/products"
+                  className="inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Browse Products
+                </Link>
+                <button
+                  onClick={handleRefresh}
+                  className="inline-block bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Check for New Recommendations
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -424,15 +458,17 @@ const RecommendationsPage = () => {
               ))}
             </div>
 
-            {/* Load More Button */}
-            <div className="text-center pt-8">
-              <button
-                onClick={() => setLimit(prev => prev + 10)}
-                className="bg-white border-2 border-purple-600 text-purple-600 px-8 py-3 rounded-lg font-medium hover:bg-purple-600 hover:text-white transition-all duration-200"
-              >
-                Load More Recommendations
-              </button>
-            </div>
+            {/* Load More Button - Only show if under limit */}
+            {limit < 20 && (
+              <div className="text-center pt-8">
+                <button
+                  onClick={() => setLimit(prev => Math.min(prev + 5, 20))}
+                  className="bg-white border-2 border-purple-600 text-purple-600 px-8 py-3 rounded-lg font-medium hover:bg-purple-600 hover:text-white transition-all duration-200"
+                >
+                  Load More Recommendations
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

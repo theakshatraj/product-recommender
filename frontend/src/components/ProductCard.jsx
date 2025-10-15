@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, Eye, ShoppingCart, Heart, Check } from 'lucide-react';
+import { Star, Eye, Heart, Check } from 'lucide-react';
 
 const ProductCard = ({ product, onInteraction, selectedUser }) => {
   const [interactionFeedback, setInteractionFeedback] = useState({});
@@ -111,14 +111,6 @@ const ProductCard = ({ product, onInteraction, selectedUser }) => {
             >
               <Eye className="w-4 h-4 text-neutral-700" />
             </button>
-            <button 
-              onClick={() => handleInteraction('cart')}
-              disabled={!selectedUser}
-              className="bg-white p-2 rounded-full shadow-lg hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Add to cart"
-            >
-              <ShoppingCart className="w-4 h-4 text-neutral-700" />
-            </button>
           </div>
         </div>
       </div>
@@ -204,7 +196,7 @@ const ProductCard = ({ product, onInteraction, selectedUser }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-2 pt-2">
+        <div className="grid grid-cols-2 gap-2 pt-2">
           <Link
             to={`/products/${product.id}`}
             className="flex items-center justify-center space-x-1 bg-primary-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition-colors"
@@ -214,18 +206,9 @@ const ProductCard = ({ product, onInteraction, selectedUser }) => {
           </Link>
           
           <button
-            onClick={() => handleInteraction('cart')}
-            disabled={!selectedUser}
-            className="flex items-center justify-center space-x-1 bg-neutral-100 text-neutral-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>Cart</span>
-          </button>
-          
-          <button
             onClick={() => handleInteraction('purchase')}
             disabled={!selectedUser}
-            className="flex items-center justify-center space-x-1 bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center space-x-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Heart className="w-4 h-4" />
             <span>Buy</span>

@@ -18,9 +18,7 @@ router = APIRouter(
 
 @router.post("/", response_model=dict, status_code=201)
 async def create_interaction(
-    user_id: int,
-    product_id: int,
-    interaction_type: str,
+    request_data: dict,
     db: Session = Depends(get_db)
 ):
     """
@@ -31,6 +29,17 @@ async def create_interaction(
     - **interaction_type**: Type of interaction (view, click, cart_add, purchase)
     """
     try:
+        # Extract data from request
+        user_id = request_data.get('user_id')
+        product_id = request_data.get('product_id')
+        interaction_type = request_data.get('interaction_type')
+        
+        if not user_id or not product_id or not interaction_type:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required fields: user_id, product_id, interaction_type"
+            )
+        
         # Validate user exists
         user = db.query(User).filter(User.id == user_id).first()
         if not user:

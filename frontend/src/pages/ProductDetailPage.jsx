@@ -3,11 +3,13 @@ import { useParams } from 'react-router-dom';
 import Header from '../components/Header';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getProduct, getSimilarProducts } from '../services/api';
+import { getProduct, getSimilarProducts, recordInteraction } from '../services/api';
+import { useUser } from '../contexts/UserContext';
 import './ProductDetailPage.css';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
+  const { selectedUser } = useUser();
   const [product, setProduct] = useState(null);
   const [similarProducts, setSimilarProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,12 @@ const ProductDetailPage = () => {
   }, [id]);
 
   const fetchProductData = async () => {
+    if (!id || id === 'undefined') {
+      console.error('Invalid product ID:', id);
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const productData = await getProduct(id);
@@ -27,6 +35,17 @@ const ProductDetailPage = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInteraction = async (productId, interactionType, rating = null) => {
+    if (!selectedUser) return;
+
+    try {
+      await recordInteraction(selectedUser.id, productId, interactionType, rating);
+      console.log(`Interaction recorded: ${interactionType} for product ${productId}`);
+    } catch (error) {
+      console.error('Failed to record interaction:', error);
     }
   };
 
@@ -56,7 +75,13 @@ const ProductDetailPage = () => {
                 ))}
               </div>
             )}
-            <button className="btn btn-primary btn-large">Add to Cart</button>
+            <button 
+              className="btn btn-primary btn-large"
+              onClick={() => handleInteraction(product.id, 'purchase')}
+              disabled={!selectedUser}
+            >
+              Buy Now
+            </button>
           </div>
         </div>
 
@@ -65,7 +90,12 @@ const ProductDetailPage = () => {
             <h2>Similar Products</h2>
             <div className="products-grid">
               {similarProducts.map(item => (
-                <ProductCard key={item.product_id} product={item} />
+                <ProductCard 
+                  key={item.product_id} 
+                  product={item} 
+                  onInteraction={handleInteraction}
+                  selectedUser={selectedUser}
+                />
               ))}
             </div>
           </div>
