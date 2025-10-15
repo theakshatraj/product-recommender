@@ -10,7 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // Create axios instance with default configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 120000, // 2 minutes timeout for LLM processing
   headers: {
     'Content-Type': 'application/json',
   },
@@ -49,7 +49,7 @@ api.interceptors.response.use(
 
 // Product API calls
 export async function getProducts() {
-  const response = await api.get('/products');
+  const response = await api.get('/products/');
   // Handle paginated response format
   return response.products || response;
 }
@@ -69,9 +69,9 @@ export async function getUserRecommendations(userId, limit = 5) {
   });
 }
 
-export async function getDetailedRecommendations(userId, limit = 10) {
-  return api.get(`/recommendations/user/${userId}/detailed`, {
-    params: { limit }
+export async function getDetailedRecommendations(userId, limit = 10, use_llm = false) {
+  return api.get(`/api/recommendations/user/${userId}`, {
+    params: { limit, apply_rules: true, use_llm }
   });
 }
 
@@ -87,7 +87,7 @@ export async function getRecommendationExplanation(userId, productId) {
 
 // User API calls
 export async function getUsers() {
-  return api.get('/users');
+  return api.get('/users/');
 }
 
 export async function getUser(userId) {

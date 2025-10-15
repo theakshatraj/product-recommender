@@ -25,8 +25,9 @@ const RecommendationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [limit, setLimit] = useState(10);
-  const [useDetailed, setUseDetailed] = useState(true);
+  const [useDetailed, setUseDetailed] = useState(false);
   const [error, setError] = useState(null);
+  const [llmProcessing, setLlmProcessing] = useState(false);
 
   useEffect(() => {
     if (selectedUser) {
@@ -43,14 +44,16 @@ const RecommendationsPage = () => {
       setError(null);
       
       let data;
-      if (useDetailed) {
-        try {
-          data = await getDetailedRecommendations(selectedUser.id, limit);
-        } catch (detailedError) {
-          console.warn('Detailed recommendations failed, falling back to basic:', detailedError);
-          data = await getUserRecommendations(selectedUser.id, limit);
+      try {
+        // Always use the enhanced endpoint for consistent data structure
+        if (useDetailed) {
+          setLlmProcessing(true);
         }
-      } else {
+        data = await getDetailedRecommendations(selectedUser.id, limit, useDetailed); // use_llm=useDetailed
+        setLlmProcessing(false);
+      } catch (detailedError) {
+        console.warn('Enhanced recommendations failed, falling back to basic:', detailedError);
+        setLlmProcessing(false);
         data = await getUserRecommendations(selectedUser.id, limit);
       }
       
@@ -103,17 +106,23 @@ const RecommendationsPage = () => {
   };
 
   const RecommendationCard = ({ recommendation, rank }) => {
-    // Handle the API data structure
-    const product = recommendation.product_details;
-    const score = recommendation.recommendation_score;
-    const factors = recommendation.reason_factors;
+    // Handle the API data structure - enhanced endpoint returns different structure
+    const product = recommendation.product_details || recommendation;
+    const score = recommendation.recommendation_score || recommendation.score;
+    const factors = recommendation.reason_factors || recommendation.factors;
     const [showFactors, setShowFactors] = useState(false);
     const [showExplanation, setShowExplanation] = useState(false);
 
     if (!product) return null;
 
-    // Generate explanation based on factors
+    // Generate explanation - use LLM explanation if available and enabled, otherwise fallback
     const generateExplanation = () => {
+      // Use LLM explanation if available AND LLM is enabled
+      if (useDetailed && recommendation.llm_explanation) {
+        return recommendation.llm_explanation;
+      }
+      
+      // Fallback to factor-based explanation
       if (!factors) return "No explanation available";
       
       const collaborativeScore = factors.collaborative_score || 0;
@@ -148,9 +157,9 @@ const RecommendationsPage = () => {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                  {product.name}
+                  {product.name || product.product_name || 'Unknown Product'}
                 </h3>
-                <p className="text-gray-600">{product.category}</p>
+                <p className="text-gray-600">{product.category || product.product_category || 'Unknown Category'}</p>
               </div>
             </div>
             
@@ -183,15 +192,15 @@ const RecommendationsPage = () => {
           <div className="flex items-center space-x-4 mb-4">
             <img 
               src={product.image_url || 'https://via.placeholder.com/80x80/6366f1/ffffff?text=Product'} 
-              alt={product.name}
+              alt={product.name || product.product_name || 'Product'}
               className="w-20 h-20 object-cover rounded-xl"
             />
             <div className="flex-1">
               <p className="text-gray-600 text-sm mb-2 line-clamp-2">
-                {product.description}
+                {product.description || product.product_description || 'No description available'}
               </p>
               <div className="text-2xl font-bold text-gray-900">
-                ${product.price.toFixed(2)}
+                ${(product.price || product.product_price || 0).toFixed(2)}
               </div>
             </div>
           </div>
@@ -205,7 +214,14 @@ const RecommendationsPage = () => {
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1">
-                <h4 className="font-semibold text-purple-800 mb-2">Why we recommend this:</h4>
+                <div className="flex items-center space-x-2 mb-2">
+                  <h4 className="font-semibold text-purple-800">Why we recommend this:</h4>
+                  {useDetailed && recommendation.llm_explanation && (
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                      AI Powered
+                    </span>
+                  )}
+                </div>
                 <p className="text-purple-700 leading-relaxed text-sm">
                   {generateExplanation()}
                 </p>
@@ -260,7 +276,7 @@ const RecommendationsPage = () => {
         <div className="px-6 pb-6">
           <div className="grid grid-cols-3 gap-3">
             <Link
-              to={`/products/${product.id}`}
+              to={`/products/${product.id || product.product_id || '#'}`}
               className="flex items-center justify-center space-x-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
             >
               <Eye className="w-4 h-4" />
@@ -335,6 +351,11 @@ const RecommendationsPage = () => {
                   >
                     {useDetailed ? 'Enabled' : 'Disabled'}
                   </button>
+                  {useDetailed && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      ⏱️ Takes 30-60s for AI explanations
+                    </p>
+                  )}
                 </div>
 
                 {/* Refresh Button */}
@@ -357,8 +378,19 @@ const RecommendationsPage = () => {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading && (
-          <div className="flex justify-center items-center py-20">
+          <div className="flex flex-col justify-center items-center py-20">
             <LoadingSpinner />
+            {llmProcessing && (
+              <div className="mt-4 text-center">
+                <div className="inline-flex items-center space-x-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm font-medium">
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  <span>Generating AI explanations...</span>
+                </div>
+                <p className="text-gray-600 text-sm mt-2">
+                  This may take 30-60 seconds for personalized explanations
+                </p>
+              </div>
+            )}
           </div>
         )}
 

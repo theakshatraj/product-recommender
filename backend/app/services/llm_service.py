@@ -1,16 +1,39 @@
 """
 LLM Service for Recommendation Explanations
 
-Generates personalized, natural language explanations for product recommendations
-using OpenRouter API (supports OpenAI, Anthropic, Google, Meta, and more models)
-with caching and rate limiting.
+This module provides a sophisticated natural language explanation service for
+product recommendations using advanced language models through the OpenRouter API.
+
+Key Features:
+- Multi-model support: OpenAI, Anthropic, Google, Meta, and more models
+- Intelligent caching: Reduces API calls and costs through smart caching
+- Rate limiting: Prevents API throttling and manages quota usage
+- Cost optimization: Uses cost-effective models with excellent quality
+- Fallback mechanisms: Graceful degradation when API is unavailable
+- Performance monitoring: Tracks API usage, costs, and response times
+
+Supported Models:
+- OpenAI GPT-4o-mini: Best value ($0.15/1M tokens, excellent quality)
+- Google Gemini Flash: Very cheap ($0.075/1M tokens, good quality)
+- Anthropic Claude: High quality ($0.25/1M tokens, excellent reasoning)
+- Meta Llama: Free tier available, good quality
+
+Architecture:
+- OpenRouter API: Unified interface for multiple LLM providers
+- Caching Layer: In-memory cache with TTL for cost optimization
+- Rate Limiting: Prevents API throttling and manages quotas
+- Error Handling: Graceful fallbacks and retry mechanisms
+- Cost Tracking: Monitors API usage and costs
+
+Author: Product Recommender Team
+Version: 1.0.0
 """
 
 import os
 import time
 import hashlib
 import logging
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Any
 from datetime import datetime, timedelta
 from collections import defaultdict
 from openai import OpenAI, APIError, RateLimitError, APIConnectionError
@@ -26,7 +49,7 @@ logger = logging.getLogger(__name__)
 # OpenRouter configuration
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Best cost-effective models (ranked by value)
+# Best cost-effective models (ranked by value and quality)
 # Updated with correct OpenRouter model names (verified)
 RECOMMENDED_MODELS = {
     "free": "meta-llama/llama-3.1-8b-instruct:free",  # Free, good quality
@@ -433,7 +456,7 @@ class LLMService:
         recommendation_factors: Dict
     ) -> str:
         """
-        Create prompt for LLM explanation generation.
+        Create prompt for LLM explanation generation based on user behavior analysis.
         
         Args:
             user_data: User information
@@ -448,20 +471,25 @@ class LLMService:
         preferred_categories = user_data.get("preferred_categories", [])
         interaction_summary = user_data.get("interaction_summary", "various products")
         purchased_count = user_data.get("purchased_count", 0)
+        user_behavior = user_data.get("behavior_patterns", {})
         
-        # Format preferred categories
+        # Format preferred categories with weights
         if isinstance(preferred_categories, dict):
-            categories_str = ", ".join(preferred_categories.keys())
+            categories_str = ", ".join([f"{cat} ({weight:.1f}x preference)" for cat, weight in preferred_categories.items()])
+            top_category = max(preferred_categories.items(), key=lambda x: x[1])[0] if preferred_categories else ""
         elif isinstance(preferred_categories, list):
             categories_str = ", ".join(preferred_categories)
+            top_category = preferred_categories[0] if preferred_categories else ""
         else:
             categories_str = "various categories"
+            top_category = ""
         
         # Extract product information
         product_name = product.get("name", "this product")
         product_category = product.get("category", "")
         product_price = product.get("price", 0)
         product_tags = product.get("tags", [])
+        product_description = product.get("description", "")
         
         # Format tags
         tags_str = ", ".join(product_tags) if product_tags else "various features"
@@ -472,36 +500,48 @@ class LLMService:
         category_boost = recommendation_factors.get("category_boost", 1.0)
         final_score = recommendation_factors.get("final_score", 0)
         
-        # Determine primary recommendation reason
-        if category_boost > 1.0:
-            reason = f"matches your interest in {product_category}"
-        elif collab_score > content_score:
-            reason = "users with similar preferences loved it"
-        else:
-            reason = f"similar to {interaction_summary}"
+        # Analyze user behavior patterns
+        behavior_insights = []
+        if purchased_count > 0:
+            behavior_insights.append(f"has purchased {purchased_count} products")
+        if top_category and product_category.lower() == top_category.lower():
+            behavior_insights.append(f"shows strong preference for {product_category} products")
+        if collab_score > 0.7:
+            behavior_insights.append("has similar tastes to other users who loved this product")
+        if content_score > 0.6:
+            behavior_insights.append("enjoys products with similar features")
         
-        # Create the prompt
-        prompt = f"""You are a helpful shopping assistant. Explain why we recommend "{product_name}" to this user.
+        behavior_summary = ", ".join(behavior_insights) if behavior_insights else "is exploring new products"
+        
+        # Create the enhanced prompt based on user behavior analysis
+        prompt = f"""Explain why product "{product_name}" is recommended to this user based on their behavior.
 
-User's recent interests: {categories_str}
-User's past purchases: {purchased_count} products
-User has shown interest in: {interaction_summary}
+USER BEHAVIOR ANALYSIS:
+- User: {username}
+- Behavior pattern: {behavior_summary}
+- Recent interests: {categories_str}
+- Interaction history: {interaction_summary}
+- Purchase history: {purchased_count} products
 
-Product details:
+PRODUCT DETAILS:
 - Name: {product_name}
 - Category: {product_category}
 - Price: ${product_price:.2f}
-- Features: {tags_str}
+- Description: {product_description}
+- Key features: {tags_str}
 
-Recommendation factors:
-- Collaborative filtering score: {collab_score:.2f}
-- Content similarity score: {content_score:.2f}
-- Category preference match: {"Yes" if category_boost > 1.0 else "No"}
-- Overall match score: {final_score:.2f}
+RECOMMENDATION ALGORITHM SCORES:
+- Collaborative filtering (similar users): {collab_score:.2f}
+- Content-based matching: {content_score:.2f}
+- Category preference boost: {category_boost:.1f}x
+- Final recommendation score: {final_score:.2f}
 
-Primary reason: {reason}
+TASK: Provide a personalized, conversational explanation (2-3 sentences) that:
+1. Specifically mentions how this product connects to their demonstrated behavior patterns
+2. Highlights why this recommendation makes sense based on their interests
+3. Uses a friendly, helpful tone as if you're a personal shopping assistant
 
-Provide a friendly, concise explanation (2-3 sentences) focusing on why this product matches their preferences. Be specific about the connection to their interests."""
+Focus on the behavioral connection - what about their past actions suggests they would like this product?"""
         
         return prompt
     
@@ -524,21 +564,36 @@ Provide a friendly, concise explanation (2-3 sentences) focusing on why this pro
         """
         product_name = product.get("name", "this product")
         product_category = product.get("category", "")
+        username = user_data.get("username", "you")
+        purchased_count = user_data.get("purchased_count", 0)
+        preferred_categories = user_data.get("preferred_categories", {})
         
         collab_score = recommendation_factors.get("collaborative_score", 0)
         content_score = recommendation_factors.get("content_based_score", 0)
         category_boost = recommendation_factors.get("category_boost", 1.0)
         
-        # Choose explanation based on dominant factor
-        if category_boost > 1.0:
-            explanation = f"We recommend '{product_name}' because you've shown strong interest in {product_category} products. "
-            explanation += f"This matches your browsing preferences and is similar to items you've enjoyed before."
-        elif collab_score > content_score:
-            explanation = f"We think you'll love '{product_name}' because users with similar tastes to yours have highly rated this product. "
-            explanation += f"It's popular among people who share your interests in {product_category}."
+        # Get top preferred category
+        if isinstance(preferred_categories, dict) and preferred_categories:
+            top_category = max(preferred_categories.items(), key=lambda x: x[1])[0]
         else:
-            explanation = f"Based on your interest in {product_category}, we recommend '{product_name}'. "
-            explanation += f"This product has features similar to items you've shown interest in before."
+            top_category = ""
+        
+        # Generate behavior-focused explanation
+        if category_boost > 1.5 and top_category:
+            explanation = f"Based on your strong preference for {top_category} products, we recommend '{product_name}'. "
+            explanation += f"You've consistently shown interest in this category, and this product matches your demonstrated preferences."
+        elif collab_score > 0.6:
+            explanation = f"We recommend '{product_name}' because users with similar shopping patterns to yours have loved this product. "
+            explanation += f"Your behavior suggests you'd enjoy {product_category} items like this one."
+        elif content_score > 0.5:
+            explanation = f"Based on your browsing history and product preferences, '{product_name}' aligns well with your interests. "
+            explanation += f"The features and category match what you typically look for in products."
+        elif purchased_count > 0:
+            explanation = f"Since you've purchased {purchased_count} products before, we recommend '{product_name}' as it fits your shopping style. "
+            explanation += f"This {product_category} product offers features you've shown interest in previously."
+        else:
+            explanation = f"We recommend '{product_name}' as a great introduction to {product_category} products. "
+            explanation += f"Based on your browsing patterns, this aligns with your current interests and preferences."
         
         return explanation
     

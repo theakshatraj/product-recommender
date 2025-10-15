@@ -4,7 +4,6 @@ import {
   getUsers, 
   getProducts, 
   getUserRecommendations, 
-  getUserAnalytics,
   recordInteraction 
 } from '../services/api';
 
@@ -13,7 +12,6 @@ const BackendConnectionTest = () => {
     users: { status: 'pending', message: 'Testing users API...', data: null },
     products: { status: 'pending', message: 'Testing products API...', data: null },
     recommendations: { status: 'pending', message: 'Testing recommendations API...', data: null },
-    analytics: { status: 'pending', message: 'Testing analytics API...', data: null },
     interactions: { status: 'pending', message: 'Testing interactions API...', data: null }
   });
 
@@ -93,30 +91,6 @@ const BackendConnectionTest = () => {
       }
     }
 
-    // Test Analytics API (if we have users)
-    if (tests.users.data && Array.isArray(tests.users.data) && tests.users.data.length > 0) {
-      try {
-        setTests(prev => ({ ...prev, analytics: { status: 'loading', message: 'Testing analytics API...', data: null } }));
-        const analytics = await getUserAnalytics(tests.users.data[0].id);
-        setTests(prev => ({ 
-          ...prev, 
-          analytics: { 
-            status: 'success', 
-            message: `Analytics data retrieved successfully`, 
-            data: analytics 
-          } 
-        }));
-      } catch (error) {
-        setTests(prev => ({ 
-          ...prev, 
-          analytics: { 
-            status: 'error', 
-            message: `Analytics API failed: ${error.message}`, 
-            data: null 
-          } 
-        }));
-      }
-    }
 
     // Test Interactions API (if we have users and products)
     if (tests.users.data && tests.products.data && 
