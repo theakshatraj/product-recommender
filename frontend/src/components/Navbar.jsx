@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Home, Sparkles, Menu, X, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
@@ -9,6 +9,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
@@ -24,7 +25,8 @@ const Navbar = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       // Navigate to products page with search query
-      window.location.href = `/products?search=${encodeURIComponent(searchQuery.trim())}`;
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery(''); // Clear search after navigation
     }
   };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProductManager from '../components/ProductManager';
@@ -8,6 +9,7 @@ import { ShoppingBag, Search, Filter, Grid, List } from 'lucide-react';
 
 const ProductsPage = () => {
   const { selectedUser } = useUser();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,6 +20,14 @@ const ProductsPage = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  // Handle URL search parameters
+  useEffect(() => {
+    const searchQuery = searchParams.get('search');
+    if (searchQuery) {
+      setSearchTerm(searchQuery);
+    }
+  }, [searchParams]);
 
   const fetchProducts = async () => {
     try {
@@ -44,14 +54,32 @@ const ProductsPage = () => {
     }
   };
 
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    // Update URL search params
+    if (value.trim()) {
+      setSearchParams({ search: value.trim() });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   // Get unique categories
   const categories = [...new Set(products.map(product => product.category))].filter(Boolean);
 
   // Filter and sort products
   const filteredProducts = products
     .filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           product.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      // Enhanced search - check name, description, category, and tags
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = searchTerm === '' || 
+        product.name.toLowerCase().includes(searchLower) ||
+        product.description?.toLowerCase().includes(searchLower) ||
+        product.category.toLowerCase().includes(searchLower) ||
+        (product.tags && product.tags.some(tag => 
+          tag.toLowerCase().includes(searchLower)
+        ));
+      
       const matchesCategory = !selectedCategory || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     })
@@ -104,7 +132,7 @@ const ProductsPage = () => {
                     type="text"
                     placeholder="Search products..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                 </div>
@@ -203,6 +231,7 @@ const ProductsPage = () => {
                       setSearchTerm('');
                       setSelectedCategory('');
                       setSortBy('name');
+                      setSearchParams({});
                     }}
                     className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
                   >
