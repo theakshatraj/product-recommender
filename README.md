@@ -503,9 +503,6 @@ LLM_MAX_REQUESTS_PER_MINUTE=50
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 👥 Contributing
 
@@ -515,12 +512,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📧 Support
-
-For questions, issues, or contributions:
-- **GitHub Issues**: [Create an issue](https://github.com/your-repo/issues)
-- **Documentation**: [Full documentation](https://your-docs-site.com)
-- **Email**: your-email@example.com
 
 ## 🙏 Acknowledgments
 
